@@ -23,6 +23,9 @@ export const slugSchema = z
   .max(64)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Expected lowercase words joined by hyphens');
 
+/** An email address, trimmed. */
+export const emailSchema = z.string().trim().max(254).pipe(z.email());
+
 /** An amount in the currency's minor unit, such as piastres or cents. */
 export const amountMinorSchema = z.int().nonnegative();
 

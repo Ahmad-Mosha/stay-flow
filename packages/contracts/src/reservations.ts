@@ -3,6 +3,7 @@ import { nightlyRateSchema } from './availability.js';
 import {
   amountMinorSchema,
   currencySchema,
+  emailSchema,
   guestsSchema,
   isoDateSchema,
   slugSchema,
@@ -24,7 +25,7 @@ export type PlaceHoldRequest = z.infer<typeof placeHoldRequestSchema>;
 /** `POST /v1/reservations/:id/confirm`, with an `Idempotency-Key` header. */
 export const confirmReservationRequestSchema = z.object({
   guestName: z.string().trim().min(1).max(200),
-  guestEmail: z.string().trim().max(254).pipe(z.email()),
+  guestEmail: emailSchema,
 });
 
 export type ConfirmReservationRequest = z.infer<typeof confirmReservationRequestSchema>;
