@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, type check, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # Integration tests start their own PostgreSQL 18 container through Testcontainers.
+      - run: pnpm test
+      - run: pnpm build
+
+  schema:
+    name: Migrations and generated types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: stayflow
+          POSTGRES_PASSWORD: stayflow
+          POSTGRES_DB: stayflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stayflow -d stayflow"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://stayflow:stayflow@localhost:5432/stayflow
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply every migration to an empty database
+        run: pnpm db:migrate
+      - name: Run migrations again (must be a no-op)
+        run: pnpm db:migrate
+      - name: Check that generated database types match the schema
+        run: pnpm --filter @stay-flow/api db:codegen:verify
