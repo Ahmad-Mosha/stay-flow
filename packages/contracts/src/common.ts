@@ -47,6 +47,34 @@ export const amountMinorSchema = z.int().nonnegative();
 /** An ISO 4217 currency code such as `EGP`. */
 export const currencySchema = z.string().regex(/^[A-Z]{3}$/);
 
+/** The most nights a block or a rate may cover: two years, like the longest booking window. */
+const MAX_SPAN_NIGHTS = 730;
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Nights from `from` up to, but not including, `to`, the way a stay runs from check-in to
+ * check-out: `{ from: '2026-12-18', to: '2026-12-20' }` is two nights.
+ */
+export const nightsSchema = z
+  .object({ from: isoDateSchema, to: isoDateSchema })
+  .refine((nights) => nights.to > nights.from, { path: ['to'], message: 'Must be after from' })
+  .refine(
+    (nights) => (Date.parse(nights.to) - Date.parse(nights.from)) / DAY_MS <= MAX_SPAN_NIGHTS,
+    {
+      path: ['to'],
+      message: `Covers at most ${String(MAX_SPAN_NIGHTS)} nights`,
+    },
+  );
+
+export type Nights = z.infer<typeof nightsSchema>;
+
+/** A PATCH body must change something. Add it to the schema: `.check(someChange)`. */
+export const someChange = z.refine<Record<string, unknown>>(
+  (body) => Object.values(body).some((value) => value !== undefined),
+  'Send at least one field to change',
+);
+
 /** Check-out must follow check-in. Add it to a schema with both dates: `.check(stayDatesInOrder)`. */
 export const stayDatesInOrder = z.refine<{ checkIn: string; checkOut: string }>(
   // ISO dates compare correctly as strings.

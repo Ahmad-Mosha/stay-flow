@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { currencySchema, localTimeSchema, slugSchema, timeZoneSchema } from './common.js';
+import {
+  currencySchema,
+  localTimeSchema,
+  slugSchema,
+  someChange,
+  timeZoneSchema,
+} from './common.js';
 
 export const stayRulesSchema = z.object({
   minNights: z.int().positive(),
@@ -31,10 +37,12 @@ export const propertyRoleSchema = z.enum(['owner', 'manager', 'front_desk']);
 
 export type PropertyRole = z.infer<typeof propertyRoleSchema>;
 
+const propertyNameSchema = z.string().trim().min(1).max(120);
+
 /** `POST /v1/host/properties`. The creator becomes its owner. */
 export const createPropertyRequestSchema = z.object({
   slug: slugSchema,
-  name: z.string().trim().min(1).max(120),
+  name: propertyNameSchema,
   timeZone: timeZoneSchema,
   currency: currencySchema,
 });
@@ -63,3 +71,34 @@ export const hostPropertyListResponseSchema = z.object({
 });
 
 export type HostPropertyListResponse = z.infer<typeof hostPropertyListResponseSchema>;
+
+/**
+ * `PATCH /v1/host/properties/:propertyId`. Bookings already made keep the terms they were made
+ * under. The time zone and the currency never change, because every date and price depends on them.
+ */
+export const updatePropertyRequestSchema = z
+  .object({
+    name: propertyNameSchema.optional(),
+    checkInTime: localTimeSchema.optional(),
+    checkOutTime: localTimeSchema.optional(),
+    stayRules: z
+      .object({
+        minNights: z.int().min(1).max(365),
+        maxNights: z.int().min(1).max(365),
+        bookingWindowDays: z.int().min(1).max(730),
+        freeCancellationHours: z.int().min(0).max(720),
+      })
+      .partial()
+      .refine(
+        (rules) =>
+          rules.minNights === undefined ||
+          rules.maxNights === undefined ||
+          rules.maxNights >= rules.minNights,
+        { path: ['maxNights'], message: 'Must be at least minNights' },
+      )
+      .check(someChange)
+      .optional(),
+  })
+  .check(someChange);
+
+export type UpdatePropertyRequest = z.infer<typeof updatePropertyRequestSchema>;

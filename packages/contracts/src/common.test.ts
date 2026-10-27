@@ -4,6 +4,7 @@ import {
   guestsSchema,
   isoDateSchema,
   localTimeSchema,
+  nightsSchema,
   slugSchema,
   timeZoneSchema,
   yearMonthSchema,
@@ -77,5 +78,24 @@ describe('timeZoneSchema', () => {
     for (const zone of ['Africa/Atlantis', '+02:00', 'GMT+2 ', '']) {
       expect(timeZoneSchema.safeParse(zone).success).toBe(false);
     }
+  });
+});
+
+describe('nightsSchema', () => {
+  it('runs from the first night up to the morning after the last', () => {
+    expect(nightsSchema.safeParse({ from: '2026-12-18', to: '2026-12-19' }).success).toBe(true);
+  });
+
+  it('rejects an empty or backwards span on `to`', () => {
+    for (const to of ['2026-12-18', '2026-12-17']) {
+      const result = nightsSchema.safeParse({ from: '2026-12-18', to });
+
+      expect(result.error?.issues, to).toMatchObject([{ path: ['to'] }]);
+    }
+  });
+
+  it('covers at most 730 nights', () => {
+    expect(nightsSchema.safeParse({ from: '2026-01-01', to: '2028-01-01' }).success).toBe(true);
+    expect(nightsSchema.safeParse({ from: '2026-01-01', to: '2028-01-02' }).success).toBe(false);
   });
 });
