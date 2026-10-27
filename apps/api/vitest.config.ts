@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Tests run server-side; resolve workspace packages to their TypeScript source, like tsc does.
+  ssr: { resolve: { conditions: ['@stay-flow/source'] } },
   test: {
     projects: [
       {

@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
+    // The build links against the compiled packages, like Node does at runtime.
+    "customConditions": [],
     "noEmit": false
   },
   "include": ["src"],
