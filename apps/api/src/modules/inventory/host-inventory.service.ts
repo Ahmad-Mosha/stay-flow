@@ -100,6 +100,10 @@ export class HostInventoryService {
       throw new AppError('NOT_FOUND', 'This property has no rate override with this id.');
     }
   }
+
+  async roomsOf(propertyId: string, reservationIds: readonly string[]): Promise<Map<string, Unit>> {
+    return this.inventory.roomsOf(propertyId, reservationIds);
+  }
 }
 
 function noUnitType(): never {

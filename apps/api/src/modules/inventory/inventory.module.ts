@@ -26,6 +26,6 @@ import { UnitsController } from './units.controller.js';
     HostInventoryRepository,
     HostInventoryService,
   ],
-  exports: [InventoryService],
+  exports: [InventoryService, HostInventoryService],
 })
 export class InventoryModule {}

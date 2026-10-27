@@ -4,6 +4,8 @@ import pg from 'pg';
 import { expect, inject } from 'vitest';
 import { newReference } from '../../src/modules/reservations/reservation-reference.js';
 import { createDatabase, type Database } from '../../src/platform/database/database.js';
+import { fromDateRange } from '../../src/platform/database/date-range.js';
+import { nightsOf } from '../../src/platform/time/date-span.js';
 import type {
   Properties,
   ReservationStatus,
@@ -73,9 +75,23 @@ interface ReservationInput {
   readonly status?: ReservationStatus;
   readonly holdExpiresAt?: Date | null;
   readonly reference?: string;
+  readonly guestName?: string;
+  readonly guestEmail?: string;
+  /** Booked at this price every night. Without it, the price snapshot lists no nights. */
+  readonly nightlyRateMinor?: number;
+  /** Such as `2026-10-20 09:00:00.123456+00`; now by default. */
+  readonly createdAt?: string;
 }
 
 export async function createReservation(db: Database, input: ReservationInput) {
+  const rate = input.nightlyRateMinor;
+  const nightlyRates =
+    rate === undefined
+      ? []
+      : nightsOf(fromDateRange(input.nights)).map((night) => ({
+          date: night.toString(),
+          rateMinor: rate,
+        }));
   return db
     .insertInto('reservations')
     .values({
@@ -85,16 +101,29 @@ export async function createReservation(db: Database, input: ReservationInput) {
       status: input.status ?? 'confirmed',
       nights: input.nights,
       guests: 2,
-      guestName: 'Test Guest',
-      guestEmail: 'guest@example.com',
+      guestName: input.guestName ?? 'Test Guest',
+      guestEmail: input.guestEmail ?? 'guest@example.com',
       currency: 'EGP',
-      totalMinor: 720_000,
-      priceSnapshot: { nightlyRates: [] },
+      totalMinor: rate === undefined ? 720_000 : rate * nightlyRates.length,
+      priceSnapshot: { nightlyRates },
       policySnapshot: { freeCancellationHours: 48 },
       holdExpiresAt: input.holdExpiresAt ?? null,
+      ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
     })
-    .returning('id')
+    .returning(['id', 'reference'])
     .executeTakeFirstOrThrow();
+}
+
+/** A reservation that takes a room for its nights, as a booking leaves it. */
+export async function createStay(db: Database, input: ReservationInput & { unitId: string }) {
+  const reservation = await createReservation(db, input);
+  await occupy(db, {
+    propertyId: input.propertyId,
+    unitId: input.unitId,
+    nights: input.nights,
+    reservationId: reservation.id,
+  });
+  return reservation;
 }
 
 interface OccupancyInput {

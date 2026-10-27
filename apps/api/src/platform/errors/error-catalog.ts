@@ -45,6 +45,7 @@ const domainErrors = {
   RATES_OVERLAP: { status: 409, title: 'Rates overlap' },
   BLOCK_IN_PAST: { status: 422, title: 'Block starts in the past' },
   UNIT_TAKEN: { status: 409, title: 'Room is not free' },
+  INVALID_CURSOR: { status: 400, title: 'Invalid cursor' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

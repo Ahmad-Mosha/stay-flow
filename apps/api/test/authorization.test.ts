@@ -160,6 +160,11 @@ const endpoints: Endpoint[] = [
     route: '/v1/host/properties/:propertyId/blocks/:blockId',
     expected: forRoles(EVERY_ROLE, 204),
   },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/reservations',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
 ];
 
 describe('host authorization', () => {

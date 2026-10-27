@@ -158,6 +158,26 @@ export class HostInventoryRepository {
     return toRateOverride(row);
   }
 
+  /** The rooms the reservations take now, by reservation id. Reservations without one are left out. */
+  async roomsOf(propertyId: string, reservationIds: readonly string[]): Promise<Map<string, Unit>> {
+    if (reservationIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db
+      .selectFrom('occupancies as o')
+      .innerJoin('units as u', 'u.id', 'o.unitId')
+      .select(['o.reservationId', 'u.id', 'u.unitTypeId', 'u.name'])
+      .where('o.propertyId', '=', propertyId)
+      .where('o.reservationId', 'in', reservationIds)
+      .where('o.releasedAt', 'is', null)
+      .execute();
+    return new Map(
+      rows.flatMap(({ reservationId, ...unit }) =>
+        reservationId === null ? [] : [[reservationId, unit] as const],
+      ),
+    );
+  }
+
   /** Deletes the override if it belongs to the property, and says whether it did. */
   async deleteRateOverride(propertyId: string, id: string): Promise<boolean> {
     const result = await this.db

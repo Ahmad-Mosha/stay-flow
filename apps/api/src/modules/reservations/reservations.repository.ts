@@ -181,7 +181,7 @@ async function recordEvents(
     .execute();
 }
 
-function toReservation(row: Selectable<Reservations>): Reservation {
+export function toReservation(row: Selectable<Reservations>): Reservation {
   const { nightlyRates } = priceSnapshotSchema.parse(row.priceSnapshot);
   return {
     id: row.id,
