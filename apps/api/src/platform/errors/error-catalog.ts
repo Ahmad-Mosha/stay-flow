@@ -32,6 +32,8 @@ const domainErrors = {
   IDEMPOTENCY_KEY_INVALID: { status: 400, title: 'Missing or invalid Idempotency-Key' },
   IDEMPOTENCY_KEY_IN_USE: { status: 409, title: 'Request already in progress' },
   IDEMPOTENCY_KEY_REUSED: { status: 422, title: 'Idempotency key reused' },
+  EMAIL_TAKEN: { status: 409, title: 'Email already registered' },
+  INVALID_CREDENTIALS: { status: 401, title: 'Invalid email or password' },
   CROSS_ORIGIN_REQUEST: { status: 403, title: 'Cross-origin request blocked' },
 } as const satisfies Record<string, ErrorDefinition>;
 

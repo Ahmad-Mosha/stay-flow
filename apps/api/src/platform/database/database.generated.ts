@@ -113,6 +113,14 @@ export interface Reservations {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface Sessions {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  tokenHash: Buffer;
+  userId: string;
+}
+
 export interface Units {
   createdAt: Generated<Timestamp>;
   id: Generated<string>;
@@ -134,6 +142,15 @@ export interface UnitTypes {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface Users {
+  createdAt: Generated<Timestamp>;
+  email: string;
+  id: Generated<string>;
+  name: string;
+  passwordHash: string;
+  updatedAt: Generated<Timestamp>;
+}
+
 export interface DB {
   blockingOccupancies: BlockingOccupancies;
   idempotencyKeys: IdempotencyKeys;
@@ -143,6 +160,8 @@ export interface DB {
   rateOverrides: RateOverrides;
   reservationEvents: ReservationEvents;
   reservations: Reservations;
+  sessions: Sessions;
   units: Units;
   unitTypes: UnitTypes;
+  users: Users;
 }
