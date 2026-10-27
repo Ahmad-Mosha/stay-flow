@@ -25,6 +25,7 @@ export interface Reservation {
   readonly id: string;
   readonly reference: string;
   readonly status: ReservationStatus;
+  readonly propertyId: string;
   readonly unitTypeId: string;
   readonly stay: DateSpan;
   readonly guests: number;

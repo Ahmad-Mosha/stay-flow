@@ -20,6 +20,8 @@ export interface Cancellation extends StepBy {
   readonly reason?: string | undefined;
   /** Refund everything, whatever the policy says. */
   readonly waiveFee?: boolean | undefined;
+  /** The refund the canceller was shown. Cancels nothing if the refund is now different. */
+  readonly expectedRefundMinor?: number | undefined;
 }
 
 const stepNames: Partial<Record<ReservationStatus, string>> = {
@@ -117,6 +119,7 @@ export class StayLifecycleService {
         step,
         () => {
           assertStayNotOver(reservation, today);
+          assertRefundAsExpected(refundMinor, cancellation.expectedRefundMinor);
         },
         { refundMinor },
       );
@@ -178,6 +181,15 @@ function assertArrivalDue({ stay }: Reservation, today: Temporal.PlainDate): voi
 function assertStayNotOver({ stay }: Reservation, today: Temporal.PlainDate): void {
   if (Temporal.PlainDate.compare(today, stay.end) >= 0) {
     throw new AppError('STAY_ENDED', `This stay ended on ${stay.end.toString()}.`);
+  }
+}
+
+function assertRefundAsExpected(refundMinor: number, expected: number | undefined): void {
+  if (expected !== undefined && refundMinor !== expected) {
+    throw new AppError(
+      'REFUND_CHANGED',
+      'The refund for cancelling has changed since it was shown. Check the new amount first.',
+    );
   }
 }
 

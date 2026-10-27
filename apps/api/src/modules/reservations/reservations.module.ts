@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module.js';
+import { GuestAccessModule } from '../guest-access/guest-access.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { PropertiesModule } from '../properties/properties.module.js';
+import { GuestReservationsController } from './guest-reservations.controller.js';
+import { GuestReservationsService } from './guest-reservations.service.js';
 import { HoldSweeper } from './hold-sweeper.js';
 import { HoldsController } from './holds.controller.js';
 import { HostReservationsController } from './host-reservations.controller.js';
@@ -13,8 +16,13 @@ import { ReservationsService } from './reservations.service.js';
 import { StayLifecycleService } from './stay-lifecycle.service.js';
 
 @Module({
-  imports: [AccessModule, PropertiesModule, InventoryModule],
-  controllers: [HoldsController, ReservationsController, HostReservationsController],
+  imports: [AccessModule, GuestAccessModule, PropertiesModule, InventoryModule],
+  controllers: [
+    HoldsController,
+    ReservationsController,
+    HostReservationsController,
+    GuestReservationsController,
+  ],
   providers: [
     ReservationsRepository,
     ReservationsService,
@@ -22,7 +30,13 @@ import { StayLifecycleService } from './stay-lifecycle.service.js';
     HostReservationsRepository,
     HostReservationsService,
     StayLifecycleService,
+    GuestReservationsService,
   ],
-  exports: [ReservationsService, HostReservationsService, StayLifecycleService],
+  exports: [
+    ReservationsService,
+    HostReservationsService,
+    StayLifecycleService,
+    GuestReservationsService,
+  ],
 })
 export class ReservationsModule {}

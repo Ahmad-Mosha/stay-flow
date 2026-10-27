@@ -36,6 +36,14 @@ export interface BlockingOccupancies {
   unitId: string | null;
 }
 
+export interface GuestAccessTokens {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  reservationId: string;
+  tokenHash: Buffer;
+}
+
 export interface IdempotencyKeys {
   createdAt: Generated<Timestamp>;
   key: string;
@@ -165,6 +173,7 @@ export interface Users {
 
 export interface DB {
   blockingOccupancies: BlockingOccupancies;
+  guestAccessTokens: GuestAccessTokens;
   idempotencyKeys: IdempotencyKeys;
   occupancies: Occupancies;
   properties: Properties;

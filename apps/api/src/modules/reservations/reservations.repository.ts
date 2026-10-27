@@ -240,6 +240,7 @@ export function toReservation(row: Selectable<Reservations>): Reservation {
     id: row.id,
     reference: row.reference,
     status: row.status,
+    propertyId: row.propertyId,
     unitTypeId: row.unitTypeId,
     stay: fromDateRange(row.nights),
     guests: row.guests,

@@ -1,4 +1,5 @@
 import type {
+  GuestReservationResponse,
   HostReservationDetailResponse,
   HostReservationResponse,
   RefundResponse,
@@ -7,6 +8,7 @@ import type {
 import { nightCount } from '../../platform/time/date-span.js';
 import type { UnitType } from '../inventory/inventory.service.js';
 import type { Refund } from './cancellation-policy.js';
+import type { GuestReservation } from './guest-reservations.service.js';
 import type { HostReservation, HostReservationDetail } from './host-reservations.service.js';
 import type { Reservation } from './reservation.js';
 
@@ -32,6 +34,20 @@ export function toReservationResponse(
     totalMinor: reservation.totalMinor,
     holdExpiresAt: holdExpiryOf(reservation),
     guest: guest === null ? null : { name: guest.name, email: guest.email },
+  };
+}
+
+export function toGuestReservationResponse({
+  reservation,
+  property,
+  unitType,
+  refund,
+}: GuestReservation): GuestReservationResponse {
+  return {
+    ...toReservationResponse(reservation, unitType),
+    property: { slug: property.slug, name: property.name },
+    policy: { ...reservation.policy },
+    refund: refund === null ? null : toRefundResponse(refund),
   };
 }
 

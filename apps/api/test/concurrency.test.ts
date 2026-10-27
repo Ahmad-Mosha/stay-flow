@@ -1,10 +1,12 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { guestReservationResponseSchema } from '@stay-flow/contracts';
 import { sql } from 'kysely';
 import request from 'supertest';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { GuestReservationsService } from '../src/modules/reservations/guest-reservations.service.js';
 import { HoldSweeper } from '../src/modules/reservations/hold-sweeper.js';
 import { ReservationsRepository } from '../src/modules/reservations/reservations.repository.js';
 import type { Database } from '../src/platform/database/database.js';
@@ -224,6 +226,40 @@ describe('booking under concurrency', () => {
       }
       expect(await eventsOf(db, id)).toHaveLength(1);
     }
+  });
+
+  it('lets either the guest cancel or the front desk check them in, never both', async () => {
+    const winners = { guest: 0, host: 0 };
+    for (let run = 0; run < RUNS; run++) {
+      const { team, id } = await arrivingToday();
+      const { token } = await app.get(GuestReservationsService).issueLink(id);
+      const asGuest = (path: string) =>
+        request(url).post(`/v1/guest/reservation${path}`).set('Authorization', `Bearer ${token}`);
+      const { refund } = guestReservationResponseSchema.parse(
+        (await request(url).get('/v1/guest/reservation').set('Authorization', `Bearer ${token}`))
+          .body,
+      );
+
+      const [cancel, checkIn] = await Promise.all([
+        sleep(randomInt(10)).then(() =>
+          asGuest('/cancel').send({ expectedRefundMinor: refund?.refundMinor }),
+        ),
+        sleep(randomInt(10)).then(() => takeStep(team, id, 'check-in')),
+      ]);
+
+      const lost = cancel.status === 200 ? checkIn : cancel;
+      expect(lost.body).toMatchObject({ status: 409, code: 'INVALID_TRANSITION' });
+      if (cancel.status === 200) {
+        expect(await statusOf(db, id)).toBe('cancelled');
+        winners.guest++;
+      } else {
+        expect(checkIn.status).toBe(200);
+        expect(await statusOf(db, id)).toBe('checked_in');
+        winners.host++;
+      }
+      expect(await eventsOf(db, id)).toHaveLength(1);
+    }
+    expect(winners.guest + winners.host).toBe(RUNS);
   });
 
   describe('confirm racing the sweeper at the hold deadline', () => {

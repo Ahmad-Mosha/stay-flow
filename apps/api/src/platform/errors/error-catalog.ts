@@ -49,6 +49,8 @@ const domainErrors = {
   INVALID_TRANSITION: { status: 409, title: 'Reservation cannot take this step' },
   ARRIVAL_NOT_DUE: { status: 422, title: 'Guest is not due yet' },
   STAY_ENDED: { status: 422, title: 'Stay has ended' },
+  INVALID_GUEST_LINK: { status: 401, title: 'Invalid or expired booking link' },
+  REFUND_CHANGED: { status: 409, title: 'Refund has changed' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */
