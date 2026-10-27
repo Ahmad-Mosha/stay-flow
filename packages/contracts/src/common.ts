@@ -23,6 +23,21 @@ export const slugSchema = z
   .max(64)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Expected lowercase words joined by hyphens');
 
+/** An IANA time zone such as `Africa/Cairo`. */
+export const timeZoneSchema = z
+  .string()
+  .regex(/^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/, 'Expected a time zone such as Africa/Cairo')
+  .refine(isTimeZone, 'Unknown time zone');
+
+function isTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** An email address, trimmed. */
 export const emailSchema = z.string().trim().max(254).pipe(z.email());
 

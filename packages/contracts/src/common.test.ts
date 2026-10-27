@@ -5,6 +5,7 @@ import {
   isoDateSchema,
   localTimeSchema,
   slugSchema,
+  timeZoneSchema,
   yearMonthSchema,
 } from './common.js';
 
@@ -61,6 +62,20 @@ describe('slugSchema', () => {
     expect(slugSchema.safeParse('garden-double').success).toBe(true);
     for (const value of ['Garden', 'garden--double', '-garden', 'garden double', '']) {
       expect(slugSchema.safeParse(value).success, value).toBe(false);
+    }
+  });
+});
+
+describe('timeZoneSchema', () => {
+  it('accepts IANA time zones', () => {
+    for (const zone of ['Africa/Cairo', 'Europe/London', 'America/Argentina/Buenos_Aires', 'UTC']) {
+      expect(timeZoneSchema.safeParse(zone).success).toBe(true);
+    }
+  });
+
+  it('rejects unknown zones and bare offsets', () => {
+    for (const zone of ['Africa/Atlantis', '+02:00', 'GMT+2 ', '']) {
+      expect(timeZoneSchema.safeParse(zone).success).toBe(false);
     }
   });
 });
