@@ -4,5 +4,8 @@
   "camelCase": true,
   "dateParser": "string",
   "excludePattern": "kysely_migration*",
-  "outFile": "src/platform/database/database.generated.ts"
+  "outFile": "src/platform/database/database.generated.ts",
+  "typeMapping": {
+    "int8": "number"
+  }
 }

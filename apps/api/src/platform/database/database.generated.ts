@@ -3,4 +3,121 @@
  * Please do not edit it manually.
  */
 
-export interface DB {}
+import type { ColumnType } from "kysely";
+
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type ReservationStatus = "cancelled" | "checked_in" | "checked_out" | "confirmed" | "expired" | "held" | "no_show" | "released";
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Occupancies {
+  blockReason: string | null;
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  nights: string;
+  propertyId: string;
+  releasedAt: Timestamp | null;
+  reservationId: string | null;
+  unitId: string;
+}
+
+export interface Properties {
+  bookingWindowDays: Generated<number>;
+  checkInTime: Generated<string>;
+  checkOutTime: Generated<string>;
+  createdAt: Generated<Timestamp>;
+  currency: string;
+  freeCancellationHours: Generated<number>;
+  id: Generated<string>;
+  maxNights: Generated<number>;
+  minNights: Generated<number>;
+  name: string;
+  slug: string;
+  timeZone: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface RateOverrides {
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  label: string;
+  nights: string;
+  rateMinor: number;
+  unitTypeId: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface ReservationEvents {
+  actor: string;
+  fromStatus: ReservationStatus | null;
+  id: Generated<string>;
+  note: string | null;
+  occurredAt: Generated<Timestamp>;
+  reservationId: string;
+  toStatus: ReservationStatus;
+}
+
+export interface Reservations {
+  createdAt: Generated<Timestamp>;
+  currency: string;
+  guestEmail: string;
+  guestName: string;
+  guests: number;
+  holdExpiresAt: Timestamp | null;
+  id: Generated<string>;
+  nights: string;
+  policySnapshot: Json;
+  priceSnapshot: Json;
+  propertyId: string;
+  reference: string;
+  status: ReservationStatus;
+  totalMinor: number;
+  unitTypeId: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface Units {
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  propertyId: string;
+  unitTypeId: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface UnitTypes {
+  baseRateMinor: number;
+  createdAt: Generated<Timestamp>;
+  description: Generated<string>;
+  id: Generated<string>;
+  maxGuests: number;
+  name: string;
+  propertyId: string;
+  slug: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface DB {
+  occupancies: Occupancies;
+  properties: Properties;
+  rateOverrides: RateOverrides;
+  reservationEvents: ReservationEvents;
+  reservations: Reservations;
+  units: Units;
+  unitTypes: UnitTypes;
+}

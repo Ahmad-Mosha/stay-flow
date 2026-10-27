@@ -2,6 +2,7 @@ import { CamelCasePlugin, Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 import type { DatabaseConfig } from '../../config/config.js';
 import type { DB } from './database.generated.js';
+import { pgTypes } from './pg-types.js';
 
 export type Database = Kysely<DB>;
 
@@ -21,6 +22,7 @@ export function createDatabase(config: DatabaseConfig, options: DatabaseOptions)
     application_name: options.applicationName,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
+    types: pgTypes,
     // Applied to every session: UTC rendering, a cap on slow queries, no abandoned transactions.
     options: [
       '-c TimeZone=UTC',
