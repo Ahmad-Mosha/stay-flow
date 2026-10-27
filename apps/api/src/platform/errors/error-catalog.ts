@@ -43,6 +43,8 @@ const domainErrors = {
   STAY_RULES_CONFLICT: { status: 422, title: 'Stay rules contradict each other' },
   UNIT_NAME_TAKEN: { status: 409, title: 'Room name already taken' },
   RATES_OVERLAP: { status: 409, title: 'Rates overlap' },
+  BLOCK_IN_PAST: { status: 422, title: 'Block starts in the past' },
+  UNIT_TAKEN: { status: 409, title: 'Room is not free' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

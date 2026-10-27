@@ -7,6 +7,7 @@ const allowedRoles = {
   'property.view': ['owner', 'manager', 'front_desk'],
   'property.manage': ['owner', 'manager'],
   'inventory.manage': ['owner', 'manager'],
+  'blocks.manage': ['owner', 'manager', 'front_desk'],
   'team.view': ['owner', 'manager', 'front_desk'],
   'team.manage': ['owner'],
 } as const satisfies Record<string, readonly PropertyRole[]>;

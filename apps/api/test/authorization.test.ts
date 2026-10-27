@@ -4,7 +4,7 @@ import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/platform/database/database.js';
 import { addMember, createSignedInUser, createTeam } from './support/access.js';
-import { connectTestDatabase, uniqueSlug } from './support/fixtures.js';
+import { connectTestDatabase, occupy, uniqueSlug } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
 const ACTORS = ['anonymous', 'outsider', 'front_desk', 'manager', 'owner'] as const;
@@ -145,6 +145,21 @@ const endpoints: Endpoint[] = [
     route: '/v1/host/properties/:propertyId/rate-overrides/:rateOverrideId',
     expected: forRoles(MANAGERS, 204),
   },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/blocks',
+    body: (scene) => ({
+      unitId: scene.params.unitId,
+      nights: { from: '2027-02-01', to: '2027-02-03' },
+      reason: 'Repairs',
+    }),
+    expected: forRoles(EVERY_ROLE, 201),
+  },
+  {
+    method: 'DELETE',
+    route: '/v1/host/properties/:propertyId/blocks/:blockId',
+    expected: forRoles(EVERY_ROLE, 204),
+  },
 ];
 
 describe('host authorization', () => {
@@ -152,7 +167,7 @@ describe('host authorization', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    // Fixed, so the rates above stay in the future.
+    // Fixed, so the blocks and rates above stay in the future.
     app = await createTestApp({ now: Temporal.Instant.from('2026-10-27T10:00:00Z') });
   });
 
@@ -169,16 +184,24 @@ describe('host authorization', () => {
       createSignedInUser(db, 'Newcomer'),
     ]);
     await addMember(db, team.propertyId, target.id, 'front_desk');
-    const rateOverride = await db
-      .insertInto('rateOverrides')
-      .values({
-        unitTypeId: team.unitTypeId,
-        nights: '[2026-12-24,2026-12-26)',
-        rateMinor: 350_000,
-        label: 'Christmas',
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
+    const [rateOverride, block] = await Promise.all([
+      db
+        .insertInto('rateOverrides')
+        .values({
+          unitTypeId: team.unitTypeId,
+          nights: '[2026-12-24,2026-12-26)',
+          rateMinor: 350_000,
+          label: 'Christmas',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow(),
+      occupy(db, {
+        propertyId: team.propertyId,
+        unitId: team.unitIds[1],
+        nights: '[2026-11-02,2026-11-04)',
+        blockReason: 'Deep clean',
+      }),
+    ]);
     return {
       params: {
         propertyId: team.propertyId,
@@ -186,6 +209,7 @@ describe('host authorization', () => {
         unitTypeId: team.unitTypeId,
         unitId: team.unitIds[0],
         rateOverrideId: rateOverride.id,
+        blockId: block.id,
       },
       newcomerEmail: newcomer.email,
       cookies: {

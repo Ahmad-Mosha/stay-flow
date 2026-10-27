@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import type { AppConfig } from './config/config.js';
 import { AppConfigModule } from './config/config.module.js';
 import { AccessModule } from './modules/access/access.module.js';
+import { FrontdeskModule } from './modules/frontdesk/frontdesk.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { PropertiesModule } from './modules/properties/properties.module.js';
@@ -35,6 +36,7 @@ export class AppModule {
         PropertiesModule,
         InventoryModule,
         ReservationsModule,
+        FrontdeskModule,
       ],
     };
   }

@@ -17,6 +17,12 @@ describe('can', () => {
     }
   });
 
+  it('lets every role block a room', () => {
+    for (const role of ['owner', 'manager', 'front_desk'] as const) {
+      expect(can(role, 'blocks.manage')).toBe(true);
+    }
+  });
+
   it('leaves the team to owners', () => {
     expect(can('owner', 'team.manage')).toBe(true);
     expect(can('manager', 'team.manage')).toBe(false);

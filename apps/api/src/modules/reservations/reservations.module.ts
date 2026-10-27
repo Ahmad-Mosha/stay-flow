@@ -11,5 +11,6 @@ import { ReservationsService } from './reservations.service.js';
   imports: [PropertiesModule, InventoryModule],
   controllers: [HoldsController, ReservationsController],
   providers: [ReservationsRepository, ReservationsService, HoldSweeper],
+  exports: [ReservationsService],
 })
 export class ReservationsModule {}

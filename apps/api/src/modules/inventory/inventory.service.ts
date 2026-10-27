@@ -5,10 +5,16 @@ import { inSavepoint } from '../../platform/database/savepoint.js';
 import { AppError } from '../../platform/errors/app-error.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
 import { bestFitOrder } from './allocation.js';
-import { InventoryRepository, type UnitType } from './inventory.repository.js';
+import {
+  type Block,
+  InventoryRepository,
+  type NewBlock,
+  type Unit,
+  type UnitType,
+} from './inventory.repository.js';
 import { priceStay, type StayPrice } from './pricing.js';
 
-export type { UnitType };
+export type { Block, Unit, UnitType };
 
 export interface UnitRequest {
   readonly propertyId: string;
@@ -78,5 +84,31 @@ export class InventoryService {
 
   async releaseUnits(trx: Transaction, reservationIds: readonly string[]): Promise<void> {
     await this.inventory.releaseOccupancies(trx, reservationIds);
+  }
+
+  async getUnit(trx: Transaction, propertyId: string, id: string): Promise<Unit> {
+    const unit = await this.inventory.findUnit(trx, propertyId, id);
+    if (unit === undefined) {
+      throw new AppError('NOT_FOUND', 'This property has no room with this id.');
+    }
+    return unit;
+  }
+
+  /** Takes the room out of service for the nights. Throws UNIT_TAKEN if any of them is taken. */
+  async block(trx: Transaction, unit: Unit, block: NewBlock): Promise<Block> {
+    try {
+      return await this.inventory.insertBlock(trx, block);
+    } catch (error) {
+      if (isPgError(error, PgErrorCode.ExclusionViolation, 'occupancies_no_overlap')) {
+        throw new AppError('UNIT_TAKEN', `Room ${unit.name} is not free on all of these nights.`);
+      }
+      throw error;
+    }
+  }
+
+  async unblock(propertyId: string, id: string): Promise<void> {
+    if (!(await this.inventory.releaseBlock(propertyId, id))) {
+      throw new AppError('NOT_FOUND', 'This property has no block with this id.');
+    }
   }
 }

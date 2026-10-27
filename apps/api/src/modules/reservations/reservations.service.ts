@@ -50,7 +50,7 @@ export class ReservationsService {
       const price = await this.inventory.quote(trx, property.id, unitType, hold.stay);
 
       // An expired hold keeps its room until it is released, so release the ones in the way.
-      await this.expire(trx, { unitTypeId: unitType.id, overlapping: hold.stay });
+      await this.clearDueHolds(trx, unitType.id, hold.stay);
       const reservation = await this.reservations.insertHold(trx, {
         propertyId: property.id,
         unitTypeId: unitType.id,
@@ -116,6 +116,14 @@ export class ReservationsService {
   async expireDueHolds(limit: number): Promise<number> {
     const expired = await this.db.transaction().execute(async (trx) => this.expire(trx, { limit }));
     return expired.length;
+  }
+
+  /**
+   * Expires the due holds of a room type that overlap `nights`, so their rooms are free to take.
+   * Runs in the caller's transaction.
+   */
+  async clearDueHolds(trx: Transaction, unitTypeId: string, nights: DateSpan): Promise<void> {
+    await this.expire(trx, { unitTypeId, overlapping: nights });
   }
 
   private async expire(trx: Transaction, holds: DueHolds): Promise<string[]> {

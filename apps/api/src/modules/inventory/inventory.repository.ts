@@ -49,6 +49,18 @@ export interface NewOccupancy {
   readonly reservationId: string;
 }
 
+/** Nights a room is out of service, set by the host. */
+export interface Block {
+  readonly id: string;
+  readonly unitId: string;
+  readonly nights: DateSpan;
+  readonly reason: string;
+}
+
+export interface NewBlock extends Omit<Block, 'id'> {
+  readonly propertyId: string;
+}
+
 /** Rate overrides grouped by room type id. */
 export type OverridesByUnitType = ReadonlyMap<string, readonly RateOverride[]>;
 
@@ -200,6 +212,15 @@ export class InventoryRepository {
     }));
   }
 
+  async findUnit(trx: Transaction, propertyId: string, id: string): Promise<Unit | undefined> {
+    return trx
+      .selectFrom('units')
+      .select(['id', 'unitTypeId', 'name'])
+      .where('propertyId', '=', propertyId)
+      .where('id', '=', id)
+      .executeTakeFirst();
+  }
+
   /** Takes the room for the stay, or fails with an exclusion violation if it is taken. */
   async occupy(trx: Transaction, occupancy: NewOccupancy): Promise<void> {
     await lockUnit(trx, occupancy.unitId);
@@ -212,6 +233,51 @@ export class InventoryRepository {
         reservationId: occupancy.reservationId,
       })
       .execute();
+  }
+
+  /** Blocks the room for the nights, or fails with an exclusion violation if one is taken. */
+  async insertBlock(trx: Transaction, block: NewBlock): Promise<Block> {
+    await lockUnit(trx, block.unitId);
+    const row = await trx
+      .insertInto('occupancies')
+      .values({
+        propertyId: block.propertyId,
+        unitId: block.unitId,
+        nights: toDateRange(block.nights),
+        blockReason: block.reason,
+      })
+      .returning(['id', 'unitId', 'nights'])
+      .executeTakeFirstOrThrow();
+    return {
+      id: row.id,
+      unitId: row.unitId,
+      nights: fromDateRange(row.nights),
+      reason: block.reason,
+    };
+  }
+
+  /**
+   * Gives the block's nights back to the room. Returns false if the property has no block with
+   * this id; a block that was already released stays as it is.
+   */
+  async releaseBlock(propertyId: string, id: string): Promise<boolean> {
+    const block = await this.db
+      .selectFrom('occupancies')
+      .select('releasedAt')
+      .where('propertyId', '=', propertyId)
+      .where('id', '=', id)
+      .where('blockReason', 'is not', null)
+      .executeTakeFirst();
+    if (block === undefined) {
+      return false;
+    }
+    await this.db
+      .updateTable('occupancies')
+      .set({ releasedAt: sql<Date>`now()` })
+      .where('id', '=', id)
+      .where('releasedAt', 'is', null)
+      .execute();
+    return true;
   }
 
   async releaseOccupancies(trx: Transaction, reservationIds: readonly string[]): Promise<void> {

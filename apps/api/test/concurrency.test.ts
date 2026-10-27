@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { sql } from 'kysely';
+import request from 'supertest';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HoldSweeper } from '../src/modules/reservations/hold-sweeper.js';
@@ -17,6 +18,7 @@ import {
   roomOf,
   statusOf,
 } from './support/booking.js';
+import { createTeam } from './support/access.js';
 import { connectTestDatabase, createInventory, occupy } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
@@ -26,6 +28,9 @@ const now = Temporal.Instant.from('2026-10-27T22:30:00Z');
 const RUNS = Number(process.env.CONCURRENCY_RUNS ?? 20);
 
 const guest = { name: 'Nour Hassan', email: 'nour@example.com' };
+
+/** Up to this late, a host block splits the wins about evenly with a guest hold it races. */
+const BLOCK_DELAY_MS = 10;
 
 describe('booking under concurrency', () => {
   const db: Database = connectTestDatabase();
@@ -43,6 +48,16 @@ describe('booking under concurrency', () => {
     await app.close();
     await db.destroy();
   });
+
+  async function activeOccupancies(unitId: string): Promise<number> {
+    const { count } = await db
+      .selectFrom('occupancies')
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .where('unitId', '=', unitId)
+      .where('releasedAt', 'is', null)
+      .executeTakeFirstOrThrow();
+    return count;
+  }
 
   async function heldReservation(): Promise<string> {
     const { slug } = await createInventory(db);
@@ -82,6 +97,46 @@ describe('booking under concurrency', () => {
       }
       expect(await reservationCount(db, propertyId)).toBe(1);
     }
+  });
+
+  it('lets either a host block or a guest hold have the last room, never both', async () => {
+    const winners = { hold: 0, block: 0 };
+    for (let run = 0; run < RUNS; run++) {
+      const team = await createTeam(db);
+      const [lastRoom, closedRoom] = team.unitIds;
+      await occupy(db, {
+        propertyId: team.propertyId,
+        unitId: closedRoom,
+        nights: '[2026-12-01,2026-12-31)',
+        blockReason: 'Closed for the season',
+      });
+
+      // A hold does more work before it takes the room, so the block starts a little later.
+      const [hold, block] = await Promise.all([
+        placeHold(url, team.slug),
+        sleep(randomInt(BLOCK_DELAY_MS)).then(() =>
+          request(url)
+            .post(`/v1/host/properties/${team.propertyId}/blocks`)
+            .set('Cookie', team.frontDesk.cookie)
+            .send({
+              unitId: lastRoom,
+              nights: { from: '2026-12-16', to: '2026-12-20' },
+              reason: 'Leak',
+            }),
+        ),
+      ]);
+
+      if (hold.status === 201) {
+        expect(block.body).toMatchObject({ status: 409, code: 'UNIT_TAKEN' });
+        winners.hold++;
+      } else {
+        expect(hold.body).toMatchObject({ status: 409, code: 'SOLD_OUT' });
+        expect(block.status).toBe(201);
+        winners.block++;
+      }
+      expect(await activeOccupancies(lastRoom)).toBe(1);
+    }
+    expect(winners.hold + winners.block).toBe(RUNS);
   });
 
   it('creates one hold for the same Idempotency-Key sent 10 times at once', async () => {
