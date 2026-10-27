@@ -1,18 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { isPgError, PgErrorCode } from '../../platform/database/pg-errors.js';
 import { AppError } from '../../platform/errors/app-error.js';
+import type { DateSpan } from '../../platform/time/date-span.js';
 import { PropertiesService } from '../properties/properties.service.js';
 import {
   HostInventoryRepository,
   type NewRateOverride,
   type NewUnitType,
+  type Occupancy,
   type RateOverride,
   type UnitTypeChanges,
   type UnitTypeWithUnits,
 } from './host-inventory.repository.js';
 import type { Unit } from './inventory.repository.js';
 
-/** How staff set up a property's room types, rooms and rates. */
+export type { Occupancy };
+
+/** How staff set up a property's room types, rooms and rates, and see which nights are taken. */
 @Injectable()
 export class HostInventoryService {
   constructor(
@@ -99,6 +103,10 @@ export class HostInventoryService {
     if (!(await this.inventory.deleteRateOverride(propertyId, id))) {
       throw new AppError('NOT_FOUND', 'This property has no rate override with this id.');
     }
+  }
+
+  async listOccupancies(propertyId: string, span: DateSpan): Promise<Occupancy[]> {
+    return this.inventory.listOccupancies(propertyId, span);
   }
 
   async roomsOf(propertyId: string, reservationIds: readonly string[]): Promise<Map<string, Unit>> {

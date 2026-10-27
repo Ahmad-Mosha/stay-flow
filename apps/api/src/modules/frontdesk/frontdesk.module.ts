@@ -5,11 +5,13 @@ import { PropertiesModule } from '../properties/properties.module.js';
 import { ReservationsModule } from '../reservations/reservations.module.js';
 import { BlocksController } from './blocks.controller.js';
 import { BlocksService } from './blocks.service.js';
+import { FrontdeskController } from './frontdesk.controller.js';
+import { FrontdeskService } from './frontdesk.service.js';
 
 /** The host's daily work across rooms and bookings. */
 @Module({
   imports: [AccessModule, PropertiesModule, InventoryModule, ReservationsModule],
-  controllers: [BlocksController],
-  providers: [BlocksService],
+  controllers: [BlocksController, FrontdeskController],
+  providers: [BlocksService, FrontdeskService],
 })
 export class FrontdeskModule {}

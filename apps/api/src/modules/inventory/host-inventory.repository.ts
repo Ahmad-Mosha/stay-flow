@@ -4,7 +4,7 @@ import type { Temporal } from 'temporal-polyfill';
 import { DATABASE, type Database } from '../../platform/database/database.js';
 import { fromDateRange, toDateRange } from '../../platform/database/date-range.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
-import { UNIT_TYPE_COLUMNS, type Unit, type UnitType } from './inventory.repository.js';
+import { type Block, UNIT_TYPE_COLUMNS, type Unit, type UnitType } from './inventory.repository.js';
 
 export interface UnitTypeWithUnits extends UnitType {
   readonly units: readonly Unit[];
@@ -34,6 +34,17 @@ export interface RateOverride {
 }
 
 export type NewRateOverride = Omit<RateOverride, 'id'>;
+
+/** Nights a room is taken: by a reservation's stay, or by a block. */
+export type Occupancy =
+  | {
+      readonly kind: 'stay';
+      readonly id: string;
+      readonly unitId: string;
+      readonly nights: DateSpan;
+      readonly reservationId: string;
+    }
+  | ({ readonly kind: 'block' } & Block);
 
 const RATE_OVERRIDE_COLUMNS = ['id', 'unitTypeId', 'nights', 'rateMinor', 'label'] as const;
 
@@ -158,6 +169,22 @@ export class HostInventoryRepository {
     return toRateOverride(row);
   }
 
+  /**
+   * The stays and blocks that take a night of `span`, in date order. A hold that ran out is left
+   * out: the next booking clears it, so the room is as good as free.
+   */
+  async listOccupancies(propertyId: string, span: DateSpan): Promise<Occupancy[]> {
+    const rows = await this.db
+      .selectFrom('blockingOccupancies')
+      .select(['id', 'unitId', 'nights', 'reservationId', 'blockReason'])
+      .where('propertyId', '=', propertyId)
+      .where(sql<boolean>`nights && ${toDateRange(span)}::daterange`)
+      .orderBy(sql`lower(nights)`)
+      .orderBy('id')
+      .execute();
+    return rows.map(toOccupancy);
+  }
+
   /** The rooms the reservations take now, by reservation id. Reservations without one are left out. */
   async roomsOf(propertyId: string, reservationIds: readonly string[]): Promise<Map<string, Unit>> {
     if (reservationIds.length === 0) {
@@ -199,4 +226,26 @@ function toRateOverride(row: {
   label: string;
 }): RateOverride {
   return { ...row, nights: fromDateRange(row.nights) };
+}
+
+/** A view's columns are all nullable to the type generator; the occupancies table rules out nulls. */
+function toOccupancy(row: {
+  id: string | null;
+  unitId: string | null;
+  nights: string | null;
+  reservationId: string | null;
+  blockReason: string | null;
+}): Occupancy {
+  const { id, unitId, nights, reservationId, blockReason } = row;
+  if (id === null || unitId === null || nights === null) {
+    throw new TypeError('An occupancy is missing its id, room or nights');
+  }
+  const span = fromDateRange(nights);
+  if (reservationId !== null) {
+    return { kind: 'stay', id, unitId, nights: span, reservationId };
+  }
+  if (blockReason !== null) {
+    return { kind: 'block', id, unitId, nights: span, reason: blockReason };
+  }
+  throw new TypeError(`Occupancy ${id} is neither a stay nor a block`);
 }

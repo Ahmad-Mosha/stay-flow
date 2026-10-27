@@ -28,6 +28,7 @@ export type ReservationStatus = "cancelled" | "checked_in" | "checked_out" | "co
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface BlockingOccupancies {
+  blockReason: string | null;
   id: string | null;
   nights: string | null;
   propertyId: string | null;

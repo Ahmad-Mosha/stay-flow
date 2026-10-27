@@ -24,6 +24,7 @@ interface Endpoint {
   readonly method: Method;
   /** The route as the router registers it. */
   readonly route: string;
+  readonly query?: Record<string, string>;
   readonly body?: (scene: Scene) => object;
   readonly expected: Record<Actor, number>;
 }
@@ -165,6 +166,17 @@ const endpoints: Endpoint[] = [
     route: '/v1/host/properties/:propertyId/reservations',
     expected: forRoles(EVERY_ROLE, 200),
   },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/calendar',
+    query: { from: '2026-11-01', to: '2026-11-08' },
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/today',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
 ];
 
 describe('host authorization', () => {
@@ -251,7 +263,7 @@ describe('host authorization', () => {
         return value;
       });
 
-      let pending = call(endpoint.method, path);
+      let pending = call(endpoint.method, path).query(endpoint.query ?? {});
       if (actor !== 'anonymous') {
         pending = pending.set('Cookie', scene.cookies[actor]);
       }
