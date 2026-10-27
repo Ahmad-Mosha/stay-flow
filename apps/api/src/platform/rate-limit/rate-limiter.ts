@@ -3,6 +3,9 @@ import { sql } from 'kysely';
 import { DATABASE, type Database } from '../database/database.js';
 import { AppError } from '../errors/app-error.js';
 
+/** Housekeeping deletes windows that started longer ago than this, so no rule may be longer. */
+export const MAX_WINDOW_SECONDS = 24 * 60 * 60;
+
 /** At most `limit` requests in each window of `windowSeconds`, counted per subject. */
 export interface RateLimit {
   /** Names the rule inside the stored key, such as `sign-in`. */
@@ -20,6 +23,9 @@ export class RateLimiter {
    * window is full. It commits on its own, so a request that fails afterwards still counts.
    */
   async consume(rule: RateLimit, subject: string): Promise<void> {
+    if (rule.windowSeconds > MAX_WINDOW_SECONDS) {
+      throw new Error(`The ${rule.name} rate limit's window is longer than a day`);
+    }
     const window = sql`make_interval(secs => ${rule.windowSeconds})`;
     // The upsert locks the row, so concurrent requests count one after another.
     const { rows } = await sql<{ hits: number; retryAfterSeconds: number }>`

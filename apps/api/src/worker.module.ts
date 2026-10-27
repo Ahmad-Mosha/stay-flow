@@ -6,6 +6,7 @@ import { HoldSweeper } from './modules/reservations/hold-sweeper.js';
 import { NightAudit } from './modules/reservations/night-audit.js';
 import { ReservationsModule } from './modules/reservations/reservations.module.js';
 import { DatabaseModule } from './platform/database/database.module.js';
+import { Housekeeping } from './platform/housekeeping/housekeeping.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
 import { LoggingModule } from './platform/logging/logging.module.js';
 import { OutboxModule } from './platform/outbox/outbox.module.js';
@@ -20,6 +21,7 @@ function schedule(
   outbox: OutboxWorker,
   holds: HoldSweeper,
   audit: NightAudit,
+  housekeeping: Housekeeping,
 ): ScheduledJob[] {
   return [
     {
@@ -36,6 +38,11 @@ function schedule(
       name: 'night audit',
       intervalMs: config.jobs.nightAuditIntervalMs,
       run: (signal) => audit.run(signal),
+    },
+    {
+      name: 'housekeeping',
+      intervalMs: config.jobs.housekeepingIntervalMs,
+      run: (signal) => housekeeping.run(signal),
     },
   ];
 }
@@ -63,10 +70,11 @@ export class WorkerModule {
       ],
       providers: [
         OutboxWorker,
+        Housekeeping,
         {
           provide: SCHEDULED_JOBS,
           useFactory: schedule,
-          inject: [APP_CONFIG, OutboxWorker, HoldSweeper, NightAudit],
+          inject: [APP_CONFIG, OutboxWorker, HoldSweeper, NightAudit, Housekeeping],
         },
         Scheduler,
       ],

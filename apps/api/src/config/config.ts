@@ -23,6 +23,8 @@ export interface JobsConfig {
   readonly holdSweepIntervalMs: number;
   /** Marking missed arrivals as no-shows. */
   readonly nightAuditIntervalMs: number;
+  /** Deleting expired sessions, guest links, idempotency keys and other short-lived rows. */
+  readonly housekeepingIntervalMs: number;
 }
 
 export interface MailConfig {
@@ -85,6 +87,7 @@ const envSchema = z.object({
   DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
   HOLD_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
   NIGHT_AUDIT_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
+  HOUSEKEEPING_INTERVAL_MS: z.coerce.number().int().min(0).default(3_600_000),
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).default('smtp://localhost:1025'),
   MAIL_FROM: z.string().trim().min(3).default('Stay Flow <bookings@stayflow.test>'),
   WEB_URL: originSchema.default('http://localhost:3001'),
@@ -121,6 +124,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     jobs: {
       holdSweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
       nightAuditIntervalMs: parsed.NIGHT_AUDIT_INTERVAL_MS,
+      housekeepingIntervalMs: parsed.HOUSEKEEPING_INTERVAL_MS,
     },
     mail: {
       smtpUrl: parsed.SMTP_URL,

@@ -33,6 +33,7 @@ export class WorkerProcess {
         DATABASE_URL: inject('databaseUrl'),
         HOLD_SWEEP_INTERVAL_MS: '0',
         NIGHT_AUDIT_INTERVAL_MS: '0',
+        HOUSEKEEPING_INTERVAL_MS: '0',
         OUTBOX_POLL_INTERVAL_MS: '50',
         ...env,
       },
