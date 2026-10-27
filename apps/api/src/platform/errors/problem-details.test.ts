@@ -27,6 +27,23 @@ describe('toProblemDetails', () => {
     });
   });
 
+  it('lists the invalid fields of a validation error', () => {
+    const errors = [{ detail: 'Must be after checkIn', pointer: '#/checkOut' }];
+
+    const problem = toProblemDetails(
+      new AppError('VALIDATION_FAILED', 'The query has invalid fields.', { errors }),
+      context,
+    );
+
+    expect(problem).toMatchObject({ status: 400, code: 'VALIDATION_FAILED', errors });
+  });
+
+  it('keeps the generic code for a framework 400, not a domain code with the same status', () => {
+    const problem = toProblemDetails(new BadRequestException('Unexpected token'), context);
+
+    expect(problem.code).toBe('BAD_REQUEST');
+  });
+
   it('omits detail when an AppError has none', () => {
     const problem = toProblemDetails(new AppError('NOT_FOUND'), context);
 

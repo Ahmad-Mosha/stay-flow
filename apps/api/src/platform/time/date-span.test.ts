@@ -1,6 +1,6 @@
 import { Temporal } from 'temporal-polyfill';
 import { describe, expect, it } from 'vitest';
-import { dateSpan, nightsOf, spanContains } from './date-span.js';
+import { dateSpan, nightCount, nightsOf, spanContains } from './date-span.js';
 
 const date = (value: string) => Temporal.PlainDate.from(value);
 
@@ -22,5 +22,11 @@ describe('dateSpan', () => {
     const nights = nightsOf(dateSpan(date('2026-12-30'), date('2027-01-02')));
 
     expect(nights.map(String)).toEqual(['2026-12-30', '2026-12-31', '2027-01-01']);
+  });
+
+  it('counts nights by calendar date, so a daylight-saving change adds no night', () => {
+    // Europe/London moves its clocks forward on 2026-03-29.
+    expect(nightCount(dateSpan(date('2026-03-28'), date('2026-03-31')))).toBe(3);
+    expect(nightCount(dateSpan(date('2026-12-30'), date('2027-01-02')))).toBe(3);
   });
 });

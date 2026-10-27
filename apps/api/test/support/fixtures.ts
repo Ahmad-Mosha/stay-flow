@@ -1,8 +1,12 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import type { Insertable } from 'kysely';
 import pg from 'pg';
 import { expect, inject } from 'vitest';
 import { createDatabase, type Database } from '../../src/platform/database/database.js';
-import type { ReservationStatus } from '../../src/platform/database/database.generated.js';
+import type {
+  Properties,
+  ReservationStatus,
+} from '../../src/platform/database/database.generated.js';
 
 const REFERENCE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
@@ -21,23 +25,27 @@ export function randomReference(): string {
   return Array.from({ length: 8 }, () => REFERENCE_ALPHABET[randomInt(32)]).join('');
 }
 
-/** A property with one room type and two rooms. */
-export async function createInventory(db: Database) {
-  const property = await db
+/** A property with one room type, "double", and two rooms, 101 and 102. */
+export async function createInventory(
+  db: Database,
+  property: Partial<Insertable<Properties>> = {},
+) {
+  const { id: propertyId, slug } = await db
     .insertInto('properties')
     .values({
       slug: uniqueSlug('property'),
       name: 'Test Guesthouse',
       timeZone: 'Africa/Cairo',
       currency: 'EGP',
+      ...property,
     })
-    .returning('id')
+    .returning(['id', 'slug'])
     .executeTakeFirstOrThrow();
 
   const unitType = await db
     .insertInto('unitTypes')
     .values({
-      propertyId: property.id,
+      propertyId,
       slug: 'double',
       name: 'Double',
       maxGuests: 2,
@@ -48,9 +56,7 @@ export async function createInventory(db: Database) {
 
   const [first, second] = await db
     .insertInto('units')
-    .values(
-      ['101', '102'].map((name) => ({ propertyId: property.id, unitTypeId: unitType.id, name })),
-    )
+    .values(['101', '102'].map((name) => ({ propertyId, unitTypeId: unitType.id, name })))
     .returning('id')
     .execute();
   if (first === undefined || second === undefined) {
@@ -58,7 +64,8 @@ export async function createInventory(db: Database) {
   }
 
   return {
-    propertyId: property.id,
+    propertyId,
+    slug,
     unitTypeId: unitType.id,
     unitIds: [first.id, second.id] as const,
   };

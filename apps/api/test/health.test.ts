@@ -32,7 +32,9 @@ describe('health probes without a database', () => {
 
   beforeAll(async () => {
     // Port 1 refuses connections immediately, which simulates a database outage.
-    app = await createTestApp({ DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:1/none' });
+    app = await createTestApp({
+      env: { DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:1/none' },
+    });
   });
 
   afterAll(async () => {

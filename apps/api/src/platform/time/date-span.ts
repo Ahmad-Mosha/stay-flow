@@ -22,6 +22,10 @@ export function spanContains(span: DateSpan, date: Temporal.PlainDate): boolean 
   );
 }
 
+export function nightCount(span: DateSpan): number {
+  return span.start.until(span.end, { largestUnit: 'days' }).days;
+}
+
 export function nightsOf(span: DateSpan): Temporal.PlainDate[] {
   const nights: Temporal.PlainDate[] = [];
   for (let night = span.start; spanContains(span, night); night = night.add({ days: 1 })) {

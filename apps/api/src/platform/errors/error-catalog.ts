@@ -3,8 +3,8 @@ interface ErrorDefinition {
   readonly title: string;
 }
 
-/** Every error code the API returns. Codes are a public contract: never rename one. */
-export const errorCatalog = {
+/** One generic code per HTTP status, for errors raised outside our code (framework, body parser). */
+const httpErrors = {
   BAD_REQUEST: { status: 400, title: 'Bad request' },
   UNAUTHENTICATED: { status: 401, title: 'Authentication required' },
   FORBIDDEN: { status: 403, title: 'Forbidden' },
@@ -18,13 +18,25 @@ export const errorCatalog = {
   SERVICE_UNAVAILABLE: { status: 503, title: 'Service unavailable' },
 } as const satisfies Record<string, ErrorDefinition>;
 
+/** Specific failures a client can act on. */
+const domainErrors = {
+  VALIDATION_FAILED: { status: 400, title: 'Request validation failed' },
+  CHECK_IN_PASSED: { status: 422, title: 'Check-in date has passed' },
+  CHECK_IN_TOO_FAR: { status: 422, title: 'Check-in date is too far ahead' },
+  STAY_TOO_SHORT: { status: 422, title: 'Stay is too short' },
+  STAY_TOO_LONG: { status: 422, title: 'Stay is too long' },
+} as const satisfies Record<string, ErrorDefinition>;
+
+/** Every error code the API returns. Codes are a public contract: never rename one. */
+export const errorCatalog = { ...httpErrors, ...domainErrors };
+
 export type ErrorCode = keyof typeof errorCatalog;
 
 const codesByStatus = new Map<number, ErrorCode>(
-  Object.entries(errorCatalog).map(([code, { status }]) => [status, code as ErrorCode]),
+  Object.entries(httpErrors).map(([code, { status }]) => [status, code as ErrorCode]),
 );
 
-/** The generic code for a status raised outside our code (framework, body parser). */
+/** The generic code for a status raised outside our code. */
 export function codeForStatus(status: number): ErrorCode {
   return codesByStatus.get(status) ?? (status < 500 ? 'BAD_REQUEST' : 'INTERNAL_ERROR');
 }

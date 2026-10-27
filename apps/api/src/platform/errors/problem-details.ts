@@ -1,5 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import { AppError } from './app-error.js';
+import { AppError, type FieldError } from './app-error.js';
 import { codeForStatus, type ErrorCode, errorCatalog } from './error-catalog.js';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
@@ -13,6 +13,7 @@ export interface ProblemDetails {
   readonly instance: string;
   readonly code: ErrorCode;
   readonly requestId: string;
+  readonly errors?: readonly FieldError[];
 }
 
 export interface ProblemContext {
@@ -22,7 +23,8 @@ export interface ProblemContext {
 
 export function toProblemDetails(exception: unknown, context: ProblemContext): ProblemDetails {
   if (exception instanceof AppError) {
-    return problem(exception.code, exception.status, exception.detail, context);
+    const details = problem(exception.code, exception.status, exception.detail, context);
+    return exception.errors === undefined ? details : { ...details, errors: exception.errors };
   }
 
   if (exception instanceof HttpException) {
