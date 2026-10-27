@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Temporal } from 'temporal-polyfill';
+import type { Transaction } from '../../platform/database/database.js';
 import { AppError } from '../../platform/errors/app-error.js';
 import { Clock } from '../../platform/time/clock.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
@@ -15,8 +16,9 @@ export class PropertiesService {
     private readonly clock: Clock,
   ) {}
 
-  async getBySlug(slug: string): Promise<Property> {
-    const property = await this.properties.findBySlug(slug);
+  /** Pass `trx` when calling from inside a transaction. */
+  async getBySlug(slug: string, trx?: Transaction): Promise<Property> {
+    const property = await this.properties.findBySlug(slug, trx);
     if (property === undefined) {
       throw new AppError('NOT_FOUND', 'No property has this slug.');
     }

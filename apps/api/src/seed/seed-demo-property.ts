@@ -1,5 +1,7 @@
 import { Temporal } from 'temporal-polyfill';
 import { priceStay } from '../modules/inventory/pricing.js';
+import type { Actor } from '../modules/reservations/reservation.js';
+import { releasesRoom } from '../modules/reservations/reservation-lifecycle.js';
 import type { Database } from '../platform/database/database.js';
 import type { ReservationStatus } from '../platform/database/database.generated.js';
 import { toDateRange } from '../platform/database/date-range.js';
@@ -13,8 +15,6 @@ import {
   demoUnitTypes,
   holidaySeason,
 } from './demo-property.js';
-
-type Actor = 'guest' | 'host' | 'system';
 
 interface SeededUnit {
   readonly id: string;
@@ -51,9 +51,6 @@ const lifecycle: Record<ReservationStatus, readonly [ReservationStatus, Actor][]
   expired: [HELD, ['expired', 'system']],
   released: [HELD, ['released', 'guest']],
 };
-
-/** Statuses that give the room back. */
-const releasesRoom = new Set<ReservationStatus>(['expired', 'released', 'cancelled', 'no_show']);
 
 export type SeedResult = 'seeded' | 'already-seeded';
 
@@ -201,7 +198,7 @@ async function insertStay(
       unitId: unit.id,
       nights: toDateRange(nights),
       reservationId: reservation.id,
-      releasedAt: releasesRoom.has(stay.status) ? toDate(latest.at) : null,
+      releasedAt: releasesRoom(stay.status) ? toDate(latest.at) : null,
       createdAt: toDate(booked.at),
     })
     .execute();

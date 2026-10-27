@@ -1,14 +1,13 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Insertable } from 'kysely';
 import pg from 'pg';
 import { expect, inject } from 'vitest';
+import { newReference } from '../../src/modules/reservations/reservation-reference.js';
 import { createDatabase, type Database } from '../../src/platform/database/database.js';
 import type {
   Properties,
   ReservationStatus,
 } from '../../src/platform/database/database.generated.js';
-
-const REFERENCE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 export function connectTestDatabase(): Database {
   return createDatabase(
@@ -19,10 +18,6 @@ export function connectTestDatabase(): Database {
 
 export function uniqueSlug(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
-}
-
-export function randomReference(): string {
-  return Array.from({ length: 8 }, () => REFERENCE_ALPHABET[randomInt(32)]).join('');
 }
 
 /** A property with one room type, "double", and two rooms, 101 and 102. */
@@ -86,7 +81,7 @@ export async function createReservation(db: Database, input: ReservationInput) {
     .values({
       propertyId: input.propertyId,
       unitTypeId: input.unitTypeId,
-      reference: input.reference ?? randomReference(),
+      reference: input.reference ?? newReference(),
       status: input.status ?? 'confirmed',
       nights: input.nights,
       guests: 2,

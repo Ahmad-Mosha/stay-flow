@@ -1,10 +1,18 @@
-import { CamelCasePlugin, Kysely, PostgresDialect } from 'kysely';
+import {
+  CamelCasePlugin,
+  Kysely,
+  PostgresDialect,
+  type Transaction as KyselyTransaction,
+} from 'kysely';
 import pg from 'pg';
 import type { DatabaseConfig } from '../../config/config.js';
 import type { DB } from './database.generated.js';
 import { pgTypes } from './pg-types.js';
 
 export type Database = Kysely<DB>;
+
+/** An open transaction. Inside one, send every query through it: a second pool connection could deadlock. */
+export type Transaction = KyselyTransaction<DB>;
 
 export const DATABASE = Symbol('DATABASE');
 

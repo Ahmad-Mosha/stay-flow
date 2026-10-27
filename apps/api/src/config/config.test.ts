@@ -14,6 +14,9 @@ describe('loadConfig', () => {
         poolMax: 10,
         statementTimeoutMs: 5_000,
       },
+      holds: {
+        sweepIntervalMs: 30_000,
+      },
     });
   });
 

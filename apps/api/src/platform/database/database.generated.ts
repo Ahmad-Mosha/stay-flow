@@ -33,6 +33,14 @@ export interface BlockingOccupancies {
   unitId: string | null;
 }
 
+export interface IdempotencyKeys {
+  createdAt: Generated<Timestamp>;
+  key: string;
+  requestHash: string;
+  response: Json;
+  scope: string;
+}
+
 export interface Occupancies {
   blockReason: string | null;
   createdAt: Generated<Timestamp>;
@@ -83,8 +91,8 @@ export interface ReservationEvents {
 export interface Reservations {
   createdAt: Generated<Timestamp>;
   currency: string;
-  guestEmail: string;
-  guestName: string;
+  guestEmail: string | null;
+  guestName: string | null;
   guests: number;
   holdExpiresAt: Timestamp | null;
   id: Generated<string>;
@@ -122,6 +130,7 @@ export interface UnitTypes {
 
 export interface DB {
   blockingOccupancies: BlockingOccupancies;
+  idempotencyKeys: IdempotencyKeys;
   occupancies: Occupancies;
   properties: Properties;
   rateOverrides: RateOverrides;

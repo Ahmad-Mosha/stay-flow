@@ -25,6 +25,13 @@ const domainErrors = {
   CHECK_IN_TOO_FAR: { status: 422, title: 'Check-in date is too far ahead' },
   STAY_TOO_SHORT: { status: 422, title: 'Stay is too short' },
   STAY_TOO_LONG: { status: 422, title: 'Stay is too long' },
+  TOO_MANY_GUESTS: { status: 422, title: 'Too many guests for this room type' },
+  SOLD_OUT: { status: 409, title: 'Sold out' },
+  HOLD_EXPIRED: { status: 409, title: 'Hold expired' },
+  RESERVATION_NOT_HELD: { status: 409, title: 'Reservation is not on hold' },
+  IDEMPOTENCY_KEY_INVALID: { status: 400, title: 'Missing or invalid Idempotency-Key' },
+  IDEMPOTENCY_KEY_IN_USE: { status: 409, title: 'Request already in progress' },
+  IDEMPOTENCY_KEY_REUSED: { status: 422, title: 'Idempotency key reused' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

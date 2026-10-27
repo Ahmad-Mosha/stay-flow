@@ -7,8 +7,8 @@ import type { Property } from './property.js';
 export class PropertiesRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async findBySlug(slug: string): Promise<Property | undefined> {
-    const row = await this.db
+  async findBySlug(slug: string, db: Database = this.db): Promise<Property | undefined> {
+    const row = await db
       .selectFrom('properties')
       .selectAll()
       .where('slug', '=', slug)

@@ -10,11 +10,17 @@ export interface DatabaseConfig {
   readonly statementTimeoutMs: number;
 }
 
+export interface HoldsConfig {
+  /** How often expired holds are swept; 0 turns the sweeper off. */
+  readonly sweepIntervalMs: number;
+}
+
 export interface AppConfig {
   readonly env: 'development' | 'test' | 'production';
   readonly port: number;
   readonly logLevel: LogLevel;
   readonly database: DatabaseConfig;
+  readonly holds: HoldsConfig;
 }
 
 export class InvalidConfigError extends Error {
@@ -31,6 +37,7 @@ const envSchema = z.object({
   }),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
+  HOLD_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
 });
 
 /** Parses the environment once at startup, so a bad deployment fails before serving traffic. */
@@ -52,6 +59,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       url: parsed.DATABASE_URL,
       poolMax: parsed.DATABASE_POOL_MAX,
       statementTimeoutMs: parsed.DATABASE_STATEMENT_TIMEOUT_MS,
+    },
+    holds: {
+      sweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
     },
   };
 }
