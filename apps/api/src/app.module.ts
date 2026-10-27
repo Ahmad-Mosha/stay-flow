@@ -9,6 +9,8 @@ import { ErrorsModule } from './platform/errors/errors.module.js';
 import { HealthModule } from './platform/health/health.module.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
 import { LoggingModule } from './platform/logging/logging.module.js';
+import { RateLimitModule } from './platform/rate-limit/rate-limit.module.js';
+import { SecurityModule } from './platform/security/security.module.js';
 import { TimeModule } from './platform/time/time.module.js';
 
 @Module({})
@@ -23,6 +25,8 @@ export class AppModule {
         ErrorsModule,
         TimeModule,
         IdempotencyModule,
+        RateLimitModule,
+        SecurityModule,
         HealthModule,
         PropertiesModule,
         InventoryModule,

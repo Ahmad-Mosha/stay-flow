@@ -15,10 +15,18 @@ export interface HoldsConfig {
   readonly sweepIntervalMs: number;
 }
 
+export interface HttpConfig {
+  /** Proxies in front of the API whose X-Forwarded-For entries are trusted to name the client. */
+  readonly trustProxyHops: number;
+  /** Browser origins, besides the API's own, allowed to send state-changing requests. */
+  readonly trustedOrigins: readonly string[];
+}
+
 export interface AppConfig {
   readonly env: 'development' | 'test' | 'production';
   readonly port: number;
   readonly logLevel: LogLevel;
+  readonly http: HttpConfig;
   readonly database: DatabaseConfig;
   readonly holds: HoldsConfig;
 }
@@ -27,10 +35,25 @@ export class InvalidConfigError extends Error {
   override readonly name = 'InvalidConfigError';
 }
 
+const originSchema = z
+  .url()
+  .refine((url) => new URL(url).origin === url, 'must be origins like https://app.example.com');
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(logLevels).default('info'),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+  TRUSTED_ORIGINS: z
+    .string()
+    .default('')
+    .transform((list) =>
+      list
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(originSchema)),
   DATABASE_URL: z.url({
     protocol: /^postgres(ql)?$/,
     error: 'must be a postgres:// connection URL',
@@ -55,6 +78,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     env: parsed.NODE_ENV,
     port: parsed.PORT,
     logLevel: parsed.LOG_LEVEL,
+    http: {
+      trustProxyHops: parsed.TRUST_PROXY_HOPS,
+      trustedOrigins: parsed.TRUSTED_ORIGINS,
+    },
     database: {
       url: parsed.DATABASE_URL,
       poolMax: parsed.DATABASE_POOL_MAX,

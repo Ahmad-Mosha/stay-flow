@@ -68,6 +68,12 @@ export interface Properties {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface RateLimits {
+  hits: number;
+  key: string;
+  windowStart: Timestamp;
+}
+
 export interface RateOverrides {
   createdAt: Generated<Timestamp>;
   id: Generated<string>;
@@ -133,6 +139,7 @@ export interface DB {
   idempotencyKeys: IdempotencyKeys;
   occupancies: Occupancies;
   properties: Properties;
+  rateLimits: RateLimits;
   rateOverrides: RateOverrides;
   reservationEvents: ReservationEvents;
   reservations: Reservations;

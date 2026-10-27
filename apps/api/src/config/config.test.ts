@@ -9,6 +9,10 @@ describe('loadConfig', () => {
       env: 'development',
       port: 3000,
       logLevel: 'info',
+      http: {
+        trustProxyHops: 0,
+        trustedOrigins: [],
+      },
       database: {
         url: validEnv.DATABASE_URL,
         poolMax: 10,
@@ -25,6 +29,21 @@ describe('loadConfig', () => {
 
     expect(config.port).toBe(8080);
     expect(config.database.poolMax).toBe(25);
+  });
+
+  it('reads trusted origins as a comma-separated list of origins', () => {
+    const config = loadConfig({
+      ...validEnv,
+      TRUSTED_ORIGINS: 'https://stayflow.example, http://localhost:3001',
+    });
+
+    expect(config.http.trustedOrigins).toEqual([
+      'https://stayflow.example',
+      'http://localhost:3001',
+    ]);
+    expect(() =>
+      loadConfig({ ...validEnv, TRUSTED_ORIGINS: 'https://stayflow.example/app' }),
+    ).toThrow(/TRUSTED_ORIGINS/);
   });
 
   it('rejects a missing DATABASE_URL and names the variable', () => {

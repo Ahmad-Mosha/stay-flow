@@ -2,6 +2,7 @@ import { type ArgumentsHost, Catch, type ExceptionFilter } from '@nestjs/common'
 import type { Request, Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { requestIdOf } from '../logging/request-id.js';
+import { AppError } from './app-error.js';
 import { PROBLEM_CONTENT_TYPE, toProblemDetails } from './problem-details.js';
 
 /** Turns every error into a problem+json response. */
@@ -24,6 +25,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       this.logger.error({ err: exception, requestId: problem.requestId }, 'Request failed');
     }
 
+    if (exception instanceof AppError) {
+      response.set(exception.headers);
+    }
     response.status(problem.status).type(PROBLEM_CONTENT_TYPE).json(problem);
   }
 }

@@ -9,20 +9,24 @@ export interface FieldError {
 
 interface AppErrorOptions extends ErrorOptions {
   readonly errors?: readonly FieldError[];
+  /** Response headers that tell the client how to recover, such as `Retry-After`. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 /** An expected failure with a stable code. `detail` is shown to clients, so keep it safe. */
 export class AppError extends Error {
   override readonly name = 'AppError';
   readonly errors: readonly FieldError[] | undefined;
+  readonly headers: Readonly<Record<string, string>>;
 
   constructor(
     readonly code: ErrorCode,
     readonly detail?: string,
-    { errors, ...options }: AppErrorOptions = {},
+    { errors, headers = {}, ...options }: AppErrorOptions = {},
   ) {
     super(detail ?? errorCatalog[code].title, options);
     this.errors = errors;
+    this.headers = headers;
   }
 
   get status(): number {

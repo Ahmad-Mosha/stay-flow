@@ -1,5 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
+import type { AppConfig } from './config/config.js';
+import { APP_CONFIG } from './config/config.module.js';
 import { requestIdMiddleware } from './platform/logging/request-id.js';
 
 export const API_PREFIX = 'v1';
@@ -9,6 +11,8 @@ export function configureApp(app: NestExpressApplication): void {
   app.use(requestIdMiddleware);
   app.useLogger(app.get(Logger));
   app.disable('x-powered-by');
+  // Lets request.ip read X-Forwarded-For, but only the entries our own proxies added.
+  app.set('trust proxy', app.get<AppConfig>(APP_CONFIG).http.trustProxyHops);
   app.setGlobalPrefix(API_PREFIX, { exclude: ['health/live', 'health/ready'] });
   app.enableShutdownHooks();
 }
