@@ -2,8 +2,9 @@ import { z } from 'zod';
 import {
   amountMinorSchema,
   currencySchema,
-  guestsSchema,
+  guestsQuerySchema,
   isoDateSchema,
+  stayDatesInOrder,
   yearMonthSchema,
 } from './common.js';
 
@@ -12,13 +13,9 @@ export const availabilityQuerySchema = z
   .object({
     checkIn: isoDateSchema,
     checkOut: isoDateSchema,
-    guests: guestsSchema,
+    guests: guestsQuerySchema,
   })
-  // ISO dates compare correctly as strings.
-  .refine((query) => query.checkOut > query.checkIn, {
-    path: ['checkOut'],
-    message: 'Must be after checkIn',
-  });
+  .check(stayDatesInOrder);
 
 export type AvailabilityQuery = z.infer<typeof availabilityQuerySchema>;
 
@@ -53,7 +50,7 @@ export type AvailabilityResponse = z.infer<typeof availabilityResponseSchema>;
 /** `GET /v1/properties/:slug/availability/calendar` */
 export const availabilityCalendarQuerySchema = z.object({
   month: yearMonthSchema,
-  guests: guestsSchema,
+  guests: guestsQuerySchema,
 });
 
 export type AvailabilityCalendarQuery = z.infer<typeof availabilityCalendarQuerySchema>;
