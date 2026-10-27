@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Native add-ons pulled in by Testcontainers' SSH support, which we don't use.
+ignoredBuiltDependencies:
+  - cpu-features
+  - protobufjs
+  - ssh2
