@@ -1,0 +1,8 @@
+{
+  "dialect": "postgres",
+  "url": "env(DATABASE_URL)",
+  "camelCase": true,
+  "dateParser": "string",
+  "excludePattern": "kysely_migration*",
+  "outFile": "src/platform/database/database.generated.ts"
+}
