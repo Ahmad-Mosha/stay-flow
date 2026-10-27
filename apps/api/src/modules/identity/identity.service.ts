@@ -92,8 +92,16 @@ export class IdentityService {
     if (needsRehash(user.passwordHash)) {
       await this.users.updatePasswordHash(user.id, await hashPassword(credentials.password));
     }
-    const account = { id: user.id, name: user.name, email: user.email };
-    return { user: account, session: await this.startSession(user.id) };
+    return { user: toUser(user), session: await this.startSession(user.id) };
+  }
+
+  async findUserByEmail(email: string): Promise<User | undefined> {
+    const user = await this.users.findByEmail(email);
+    return user === undefined ? undefined : toUser(user);
+  }
+
+  async findUsers(ids: readonly string[]): Promise<User[]> {
+    return this.users.findByIds(ids);
   }
 
   async signOut(token: string): Promise<void> {
@@ -115,4 +123,8 @@ export class IdentityService {
     const expiresAt = await this.sessions.insert(userId, hashSessionToken(token), db);
     return { token, expiresAt };
   }
+}
+
+function toUser({ id, name, email }: User): User {
+  return { id, name, email };
 }

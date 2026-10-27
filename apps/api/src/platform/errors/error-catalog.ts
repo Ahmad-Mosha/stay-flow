@@ -35,6 +35,11 @@ const domainErrors = {
   EMAIL_TAKEN: { status: 409, title: 'Email already registered' },
   INVALID_CREDENTIALS: { status: 401, title: 'Invalid email or password' },
   CROSS_ORIGIN_REQUEST: { status: 403, title: 'Cross-origin request blocked' },
+  INSUFFICIENT_ROLE: { status: 403, title: 'Role does not allow this' },
+  SLUG_TAKEN: { status: 409, title: 'Slug already taken' },
+  NO_ACCOUNT: { status: 422, title: 'No account with this email' },
+  ALREADY_MEMBER: { status: 409, title: 'Already a member' },
+  LAST_OWNER: { status: 409, title: 'Property needs an owner' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

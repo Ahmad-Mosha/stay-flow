@@ -35,6 +35,17 @@ export class UsersRepository {
       .executeTakeFirst();
   }
 
+  async findByIds(ids: readonly string[]): Promise<User[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    return this.db
+      .selectFrom('users')
+      .select(['id', 'name', 'email'])
+      .where('id', 'in', ids)
+      .execute();
+  }
+
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
     await this.db.updateTable('users').set({ passwordHash }).where('id', '=', id).execute();
   }

@@ -21,6 +21,8 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
+export type PropertyRole = "front_desk" | "manager" | "owner";
+
 export type ReservationStatus = "cancelled" | "checked_in" | "checked_out" | "confirmed" | "expired" | "held" | "no_show" | "released";
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -66,6 +68,13 @@ export interface Properties {
   slug: string;
   timeZone: string;
   updatedAt: Generated<Timestamp>;
+}
+
+export interface PropertyMembers {
+  createdAt: Generated<Timestamp>;
+  propertyId: string;
+  role: PropertyRole;
+  userId: string;
 }
 
 export interface RateLimits {
@@ -156,6 +165,7 @@ export interface DB {
   idempotencyKeys: IdempotencyKeys;
   occupancies: Occupancies;
   properties: Properties;
+  propertyMembers: PropertyMembers;
   rateLimits: RateLimits;
   rateOverrides: RateOverrides;
   reservationEvents: ReservationEvents;

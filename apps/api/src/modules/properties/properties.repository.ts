@@ -1,7 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { Selectable } from 'kysely';
 import { Temporal } from 'temporal-polyfill';
-import { DATABASE, type Database } from '../../platform/database/database.js';
+import { DATABASE, type Database, type Transaction } from '../../platform/database/database.js';
+import type { Properties } from '../../platform/database/database.generated.js';
 import type { Property } from './property.js';
+
+export interface NewProperty {
+  readonly slug: string;
+  readonly name: string;
+  readonly timeZone: string;
+  readonly currency: string;
+}
 
 @Injectable()
 export class PropertiesRepository {
@@ -13,24 +22,47 @@ export class PropertiesRepository {
       .selectAll()
       .where('slug', '=', slug)
       .executeTakeFirst();
-    if (row === undefined) {
-      return undefined;
-    }
-
-    return {
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      timeZone: row.timeZone,
-      currency: row.currency,
-      checkInTime: Temporal.PlainTime.from(row.checkInTime),
-      checkOutTime: Temporal.PlainTime.from(row.checkOutTime),
-      stayRules: {
-        minNights: row.minNights,
-        maxNights: row.maxNights,
-        bookingWindowDays: row.bookingWindowDays,
-        freeCancellationHours: row.freeCancellationHours,
-      },
-    };
+    return row === undefined ? undefined : toProperty(row);
   }
+
+  async findByIds(ids: readonly string[]): Promise<Property[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await this.db
+      .selectFrom('properties')
+      .selectAll()
+      .where('id', 'in', ids)
+      .execute();
+    return rows.map(toProperty);
+  }
+
+  /** Inserts the property, or returns undefined if its slug is taken. */
+  async insert(trx: Transaction, property: NewProperty): Promise<Property | undefined> {
+    const row = await trx
+      .insertInto('properties')
+      .values(property)
+      .onConflict((conflict) => conflict.column('slug').doNothing())
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toProperty(row);
+  }
+}
+
+function toProperty(row: Selectable<Properties>): Property {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    timeZone: row.timeZone,
+    currency: row.currency,
+    checkInTime: Temporal.PlainTime.from(row.checkInTime),
+    checkOutTime: Temporal.PlainTime.from(row.checkOutTime),
+    stayRules: {
+      minNights: row.minNights,
+      maxNights: row.maxNights,
+      bookingWindowDays: row.bookingWindowDays,
+      freeCancellationHours: row.freeCancellationHours,
+    },
+  };
 }

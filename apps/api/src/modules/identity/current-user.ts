@@ -8,13 +8,16 @@ export function setCurrentUser(request: Request, user: User): void {
   signedInUsers.set(request, user);
 }
 
+/** The user the SessionGuard signed in for this request. */
+export function currentUserOf(request: Request): User {
+  const user = signedInUsers.get(request);
+  if (user === undefined) {
+    throw new Error('The route needs the SessionGuard before this point');
+  }
+  return user;
+}
+
 /** The signed-in user. Use on routes behind the SessionGuard. */
-export const CurrentUser = createParamDecorator(
-  (_data: unknown, context: ExecutionContext): User => {
-    const user = signedInUsers.get(context.switchToHttp().getRequest<Request>());
-    if (user === undefined) {
-      throw new Error('@CurrentUser() needs the SessionGuard on the route');
-    }
-    return user;
-  },
+export const CurrentUser = createParamDecorator((_data: unknown, context: ExecutionContext): User =>
+  currentUserOf(context.switchToHttp().getRequest<Request>()),
 );
