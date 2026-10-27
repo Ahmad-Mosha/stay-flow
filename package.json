@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @stay-flow/api db:migrate",
+    "db:seed": "pnpm --filter @stay-flow/api db:seed",
     "db:codegen": "pnpm --filter @stay-flow/api db:codegen"
   },
   "devDependencies": {

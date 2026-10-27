@@ -12,6 +12,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "db:migrate": "nest build && node --env-file-if-exists=.env dist/platform/database/migrate.js",
+    "db:seed": "nest build && node --env-file-if-exists=.env dist/seed/seed.js",
     "db:codegen": "kysely-codegen",
     "db:codegen:verify": "kysely-codegen --verify"
   },
