@@ -16,7 +16,17 @@ export interface StayPrice {
   readonly totalMinor: number;
 }
 
-/** Prices each night at its override, or the base rate. Overrides never overlap (a DB constraint). */
+/** The rate of one night: its override, or the base rate. Overrides never overlap (a DB constraint). */
+export function nightlyRate(
+  date: Temporal.PlainDate,
+  baseRateMinor: number,
+  overrides: readonly RateOverride[],
+): number {
+  return (
+    overrides.find((override) => spanContains(override.nights, date))?.rateMinor ?? baseRateMinor
+  );
+}
+
 export function priceStay(
   stay: DateSpan,
   baseRateMinor: number,
@@ -24,8 +34,7 @@ export function priceStay(
 ): StayPrice {
   const nightlyRates = nightsOf(stay).map((date) => ({
     date,
-    rateMinor:
-      overrides.find((override) => spanContains(override.nights, date))?.rateMinor ?? baseRateMinor,
+    rateMinor: nightlyRate(date, baseRateMinor, overrides),
   }));
   const totalMinor = nightlyRates.reduce((total, night) => total + night.rateMinor, 0);
   return { nightlyRates, totalMinor };

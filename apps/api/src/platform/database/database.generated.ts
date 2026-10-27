@@ -25,6 +25,14 @@ export type ReservationStatus = "cancelled" | "checked_in" | "checked_out" | "co
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface BlockingOccupancies {
+  id: string | null;
+  nights: string | null;
+  propertyId: string | null;
+  reservationId: string | null;
+  unitId: string | null;
+}
+
 export interface Occupancies {
   blockReason: string | null;
   createdAt: Generated<Timestamp>;
@@ -113,6 +121,7 @@ export interface UnitTypes {
 }
 
 export interface DB {
+  blockingOccupancies: BlockingOccupancies;
   occupancies: Occupancies;
   properties: Properties;
   rateOverrides: RateOverrides;

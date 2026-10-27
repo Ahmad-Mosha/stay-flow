@@ -1,6 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import type { AppConfig } from './config/config.js';
 import { AppConfigModule } from './config/config.module.js';
+import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { PropertiesModule } from './modules/properties/properties.module.js';
 import { DatabaseModule } from './platform/database/database.module.js';
 import { ErrorsModule } from './platform/errors/errors.module.js';
@@ -21,6 +22,7 @@ export class AppModule {
         TimeModule,
         HealthModule,
         PropertiesModule,
+        InventoryModule,
       ],
     };
   }
