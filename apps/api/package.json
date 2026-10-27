@@ -26,6 +26,7 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "temporal-polyfill": "^1.0.6",
     "zod": "^4.6.7"
   },
   "devDependencies": {
