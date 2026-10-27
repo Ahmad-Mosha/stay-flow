@@ -2,9 +2,10 @@ import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 import type { PropertyRole } from './policy.js';
 
-/** The property a host route acts on, and the signed-in user's role there. */
+/** The property a host route acts on, and the signed-in user and their role there. */
 export interface PropertyAccess {
   readonly propertyId: string;
+  readonly userId: string;
   readonly role: PropertyRole;
 }
 

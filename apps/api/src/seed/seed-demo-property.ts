@@ -1,5 +1,6 @@
 import { Temporal } from 'temporal-polyfill';
 import { priceStay } from '../modules/inventory/pricing.js';
+import { refundFor } from '../modules/reservations/cancellation-policy.js';
 import type { Actor } from '../modules/reservations/reservation.js';
 import { releasesRoom } from '../modules/reservations/reservation-lifecycle.js';
 import type { Database } from '../platform/database/database.js';
@@ -153,6 +154,11 @@ async function insertStay(
     { nights: context.holidays, rateMinor: unit.type.holidayRateMinor },
   ]);
 
+  const policy = {
+    freeCancellationHours: demoProperty.freeCancellationHours,
+    checkInTime: demoProperty.checkInTime,
+    checkOutTime: demoProperty.checkOutTime,
+  };
   const timeline = timelineOf(stay.status, nights, context.now, index);
   const booked = timeline[0];
   const latest = timeline.at(-1);
@@ -179,11 +185,21 @@ async function insertStay(
           rateMinor: night.rateMinor,
         })),
       },
-      policySnapshot: {
-        freeCancellationHours: demoProperty.freeCancellationHours,
-        checkInTime: demoProperty.checkInTime,
-        checkOutTime: demoProperty.checkOutTime,
-      },
+      policySnapshot: policy,
+      // What the policy refunded at the moment the guest cancelled.
+      refundMinor:
+        stay.status === 'cancelled'
+          ? refundFor(
+              {
+                stay: nights,
+                nightlyRates: price.nightlyRates,
+                totalMinor: price.totalMinor,
+                policy,
+              },
+              demoProperty.timeZone,
+              latest.at,
+            ).refundMinor
+          : null,
       holdExpiresAt: toDate(booked.at.add({ minutes: 10 })),
       createdAt: toDate(booked.at),
       updatedAt: toDate(latest.at),

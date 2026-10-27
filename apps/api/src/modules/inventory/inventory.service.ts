@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Temporal } from 'temporal-polyfill';
 import type { Transaction } from '../../platform/database/database.js';
 import { isPgError, PgErrorCode } from '../../platform/database/pg-errors.js';
 import { inSavepoint } from '../../platform/database/savepoint.js';
@@ -84,6 +85,11 @@ export class InventoryService {
 
   async releaseUnits(trx: Transaction, reservationIds: readonly string[]): Promise<void> {
     await this.inventory.releaseOccupancies(trx, reservationIds);
+  }
+
+  /** After a check-out, gives back the nights from `today` on, so an early departure frees tonight. */
+  async endStay(trx: Transaction, reservationId: string, today: Temporal.PlainDate): Promise<void> {
+    await this.inventory.endOccupancy(trx, reservationId, today);
   }
 
   async getUnit(trx: Transaction, propertyId: string, id: string): Promise<Unit> {

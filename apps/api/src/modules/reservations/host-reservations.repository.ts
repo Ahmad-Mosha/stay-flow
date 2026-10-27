@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type Selectable, sql } from 'kysely';
 import { Temporal } from 'temporal-polyfill';
+import { z } from 'zod';
 import { DATABASE, type Database } from '../../platform/database/database.js';
 import type { Reservations } from '../../platform/database/database.generated.js';
 import { toDateRange } from '../../platform/database/date-range.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
-import type { Reservation, ReservationStatus } from './reservation.js';
+import type { Actor, Reservation, ReservationStatus } from './reservation.js';
 import { toReservation } from './reservations.repository.js';
 
 export interface StoredReservation extends Reservation {
@@ -38,12 +39,24 @@ export interface ReservationPage {
   readonly next: ListPosition | null;
 }
 
+/** One step in a reservation's history. */
+export interface ReservationEvent {
+  readonly fromStatus: ReservationStatus | null;
+  readonly toStatus: ReservationStatus;
+  readonly actor: Actor;
+  readonly userId: string | null;
+  readonly note: string | null;
+  readonly occurredAt: Temporal.Instant;
+}
+
 export interface BookedNights {
   readonly nightsSold: number;
   readonly revenueMinor: number;
 }
 
 const NEVER_BOOKED = ['expired', 'released'] as const;
+
+const actorSchema = z.enum(['guest', 'host', 'system']);
 
 /** Every query here is scoped to one property. */
 @Injectable()
@@ -147,6 +160,22 @@ export class HostReservationsRepository {
       .orderBy('id')
       .execute();
     return rows.map(toStoredReservation);
+  }
+
+  /** The reservation's history, oldest first. */
+  async listEvents(reservationId: string): Promise<ReservationEvent[]> {
+    const rows = await this.db
+      .selectFrom('reservationEvents')
+      .select(['fromStatus', 'toStatus', 'actor', 'userId', 'note', 'occurredAt'])
+      .where('reservationId', '=', reservationId)
+      .orderBy('occurredAt')
+      .orderBy('id')
+      .execute();
+    return rows.map((row) => ({
+      ...row,
+      actor: actorSchema.parse(row.actor),
+      occurredAt: Temporal.Instant.fromEpochMilliseconds(row.occurredAt.getTime()),
+    }));
   }
 
   /** The nights of `span` that booked stays take, and their prices when they were booked. */

@@ -46,6 +46,9 @@ const domainErrors = {
   BLOCK_IN_PAST: { status: 422, title: 'Block starts in the past' },
   UNIT_TAKEN: { status: 409, title: 'Room is not free' },
   INVALID_CURSOR: { status: 400, title: 'Invalid cursor' },
+  INVALID_TRANSITION: { status: 409, title: 'Reservation cannot take this step' },
+  ARRIVAL_NOT_DUE: { status: 422, title: 'Guest is not due yet' },
+  STAY_ENDED: { status: 422, title: 'Stay has ended' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

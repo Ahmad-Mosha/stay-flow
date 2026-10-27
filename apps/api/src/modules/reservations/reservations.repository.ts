@@ -9,14 +9,13 @@ import type { DateSpan } from '../../platform/time/date-span.js';
 import type { StayPrice } from '../inventory/pricing.js';
 import { canTransition, HOLD_MINUTES } from './reservation-lifecycle.js';
 import { newReference } from './reservation-reference.js';
-import type { Actor, Guest, Reservation, ReservationStatus } from './reservation.js';
-
-/** The terms a guest booked under, kept in case the property changes them later. */
-export interface PolicySnapshot {
-  readonly freeCancellationHours: number;
-  readonly checkInTime: string;
-  readonly checkOutTime: string;
-}
+import type {
+  Actor,
+  Guest,
+  PolicySnapshot,
+  Reservation,
+  ReservationStatus,
+} from './reservation.js';
 
 export interface NewHold {
   readonly propertyId: string;
@@ -32,16 +31,26 @@ export interface NewHold {
 export type DueHolds =
   { readonly limit: number } | { readonly unitTypeId: string; readonly overlapping: DateSpan };
 
-interface Move {
+/** One step of the lifecycle, and who took it. */
+export interface Move {
   readonly from: ReservationStatus;
   readonly to: ReservationStatus;
   readonly actor: Actor;
+  /** The staff member, for a host's move. */
+  readonly userId?: string | undefined;
+  readonly note?: string | undefined;
 }
 
 type ReservationUpdate = UpdateQueryBuilder<DB, 'reservations', 'reservations', unknown>;
 
 const priceSnapshotSchema = z.object({
   nightlyRates: z.array(z.object({ date: z.iso.date(), rateMinor: z.int() })),
+});
+
+const policySnapshotSchema = z.object({
+  freeCancellationHours: z.int(),
+  checkInTime: z.string(),
+  checkOutTime: z.string(),
 });
 
 const MAX_REFERENCE_DRAWS = 5;
@@ -52,6 +61,20 @@ export class ReservationsRepository {
     const row = await trx
       .selectFrom('reservations')
       .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toReservation(row);
+  }
+
+  async findInProperty(
+    trx: Transaction,
+    propertyId: string,
+    id: string,
+  ): Promise<Reservation | undefined> {
+    const row = await trx
+      .selectFrom('reservations')
+      .selectAll()
+      .where('propertyId', '=', propertyId)
       .where('id', '=', id)
       .executeTakeFirst();
     return row === undefined ? undefined : toReservation(row);
@@ -112,6 +135,26 @@ export class ReservationsRepository {
   }
 
   /**
+   * Moves the property's reservation one step on, with `changes`, if it is still in `move.from`.
+   * False when it is not: it is gone, or another request moved it first.
+   */
+  async advance(
+    trx: Transaction,
+    propertyId: string,
+    id: string,
+    step: Move,
+    changes: Updateable<Reservations> = {},
+  ): Promise<boolean> {
+    const moved = await move(
+      trx,
+      step,
+      (update) => update.where('id', '=', id).where('propertyId', '=', propertyId),
+      changes,
+    );
+    return moved.length > 0;
+  }
+
+  /**
    * Expires due holds and returns their ids. Rows another transaction has locked are skipped:
    * it is already confirming, releasing or expiring them.
    */
@@ -140,10 +183,11 @@ export class ReservationsRepository {
  */
 async function move(
   trx: Transaction,
-  { from, to, actor }: Move,
+  step: Move,
   pick: (update: ReservationUpdate) => ReservationUpdate,
   changes: Updateable<Reservations> = {},
 ): Promise<string[]> {
+  const { from, to } = step;
   if (!canTransition(from, to)) {
     throw new Error(`A reservation cannot go from ${from} to ${to}`);
   }
@@ -156,14 +200,20 @@ async function move(
     .returning('id')
     .execute();
   const ids = rows.map((row) => row.id);
-  await recordEvents(trx, ids, { from, to, actor });
+  await recordEvents(trx, ids, step);
   return ids;
 }
 
 async function recordEvents(
   trx: Transaction,
   reservationIds: readonly string[],
-  { from, to, actor }: Omit<Move, 'from'> & { readonly from: ReservationStatus | null },
+  {
+    from,
+    to,
+    actor,
+    userId,
+    note,
+  }: Omit<Move, 'from'> & { readonly from: ReservationStatus | null },
 ): Promise<void> {
   if (reservationIds.length === 0) {
     return;
@@ -176,6 +226,8 @@ async function recordEvents(
         fromStatus: from,
         toStatus: to,
         actor,
+        userId: userId ?? null,
+        note: note ?? null,
       })),
     )
     .execute();
@@ -183,6 +235,7 @@ async function recordEvents(
 
 export function toReservation(row: Selectable<Reservations>): Reservation {
   const { nightlyRates } = priceSnapshotSchema.parse(row.priceSnapshot);
+  const policy: PolicySnapshot = policySnapshotSchema.parse(row.policySnapshot);
   return {
     id: row.id,
     reference: row.reference,
@@ -196,6 +249,8 @@ export function toReservation(row: Selectable<Reservations>): Reservation {
       rateMinor: night.rateMinor,
     })),
     totalMinor: row.totalMinor,
+    policy,
+    refundMinor: row.refundMinor,
     holdExpiresAt:
       row.holdExpiresAt === null
         ? null

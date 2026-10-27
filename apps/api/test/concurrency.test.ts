@@ -19,9 +19,10 @@ import {
   statusOf,
 } from './support/booking.js';
 import { createTeam } from './support/access.js';
-import { connectTestDatabase, createInventory, occupy } from './support/fixtures.js';
+import { connectTestDatabase, createInventory, createStay, occupy } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
+// 01:30 on 28 October in Cairo, so a stay from the 28th is due today.
 const now = Temporal.Instant.from('2026-10-27T22:30:00Z');
 
 /** How many times each race runs. The plan's acceptance run uses CONCURRENCY_RUNS=100. */
@@ -57,6 +58,27 @@ describe('booking under concurrency', () => {
       .where('releasedAt', 'is', null)
       .executeTakeFirstOrThrow();
     return count;
+  }
+
+  type Team = Awaited<ReturnType<typeof createTeam>>;
+
+  /** A host step on a reservation, sent by the front desk. */
+  function takeStep(team: Team, id: string, step: 'check-in' | 'cancel') {
+    return request(url)
+      .post(`/v1/host/properties/${team.propertyId}/reservations/${id}/${step}`)
+      .set('Cookie', team.frontDesk.cookie)
+      .send(step === 'cancel' ? { reason: 'Guest called' } : {});
+  }
+
+  /** A team with a guest due today in its first room. */
+  async function arrivingToday(): Promise<{ team: Team; id: string }> {
+    const team = await createTeam(db);
+    const { id } = await createStay(db, {
+      ...team,
+      unitId: team.unitIds[0],
+      nights: '[2026-10-28,2026-10-30)',
+    });
+    return { team, id };
   }
 
   async function heldReservation(): Promise<string> {
@@ -157,6 +179,50 @@ describe('booking under concurrency', () => {
         expect(response.body).toMatchObject({ code: 'IDEMPOTENCY_KEY_IN_USE' });
       }
       expect(await reservationCount(db, propertyId)).toBe(1);
+    }
+  });
+
+  it('lets either check-in or cancellation happen to a guest, never both', async () => {
+    const winners = { checkIn: 0, cancel: 0 };
+    for (let run = 0; run < RUNS; run++) {
+      const { team, id } = await arrivingToday();
+
+      const [checkIn, cancel] = await Promise.all([
+        sleep(randomInt(10)).then(() => takeStep(team, id, 'check-in')),
+        sleep(randomInt(10)).then(() => takeStep(team, id, 'cancel')),
+      ]);
+
+      const [won, lost] = checkIn.status === 200 ? [checkIn, cancel] : [cancel, checkIn];
+      expect(won.status).toBe(200);
+      expect(lost.body).toMatchObject({ status: 409, code: 'INVALID_TRANSITION' });
+      if (won === checkIn) {
+        expect(await statusOf(db, id)).toBe('checked_in');
+        expect(await roomOf(db, id)).toBe(team.unitIds[0]);
+        winners.checkIn++;
+      } else {
+        expect(await statusOf(db, id)).toBe('cancelled');
+        expect(await roomOf(db, id)).toBeUndefined();
+        winners.cancel++;
+      }
+      expect(await eventsOf(db, id)).toHaveLength(1);
+    }
+    expect(winners.checkIn + winners.cancel).toBe(RUNS);
+  });
+
+  it('checks a guest in once when two staff do it at the same time', async () => {
+    for (let run = 0; run < RUNS; run++) {
+      const { team, id } = await arrivingToday();
+
+      const responses = await Promise.all([
+        takeStep(team, id, 'check-in'),
+        takeStep(team, id, 'check-in'),
+      ]);
+
+      for (const response of responses) {
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ status: 'checked_in' });
+      }
+      expect(await eventsOf(db, id)).toHaveLength(1);
     }
   });
 

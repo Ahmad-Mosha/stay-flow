@@ -102,6 +102,7 @@ export interface ReservationEvents {
   occurredAt: Generated<Timestamp>;
   reservationId: string;
   toStatus: ReservationStatus;
+  userId: string | null;
 }
 
 export interface Reservations {
@@ -117,6 +118,7 @@ export interface Reservations {
   priceSnapshot: Json;
   propertyId: string;
   reference: string;
+  refundMinor: number | null;
   status: ReservationStatus;
   totalMinor: number;
   unitTypeId: string;

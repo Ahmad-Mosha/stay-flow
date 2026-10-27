@@ -50,7 +50,7 @@ export class PropertyAccessGuard implements CanActivate {
       );
     }
 
-    grantPropertyAccess(request, { propertyId, role });
+    grantPropertyAccess(request, { propertyId, userId: user.id, role });
     return true;
   }
 }

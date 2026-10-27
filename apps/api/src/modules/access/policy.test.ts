@@ -17,9 +17,10 @@ describe('can', () => {
     }
   });
 
-  it('lets every role block a room', () => {
+  it('lets every role block a room and run the stays', () => {
     for (const role of ['owner', 'manager', 'front_desk'] as const) {
       expect(can(role, 'blocks.manage')).toBe(true);
+      expect(can(role, 'reservations.manage')).toBe(true);
     }
   });
 

@@ -4,7 +4,7 @@ import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/platform/database/database.js';
 import { addMember, createSignedInUser, createTeam } from './support/access.js';
-import { connectTestDatabase, occupy, uniqueSlug } from './support/fixtures.js';
+import { connectTestDatabase, createStay, occupy, uniqueSlug } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
 const ACTORS = ['anonymous', 'outsider', 'front_desk', 'manager', 'owner'] as const;
@@ -17,6 +17,8 @@ interface Scene {
   readonly params: Record<string, string>;
   /** Someone with an account who is not on the team yet. */
   readonly newcomerEmail: string;
+  /** A guest staying tonight, for the steps that need one already checked in. */
+  readonly inHouseReservationId: string;
   readonly cookies: Record<Exclude<Actor, 'anonymous'>, string>;
 }
 
@@ -25,6 +27,8 @@ interface Endpoint {
   /** The route as the router registers it. */
   readonly route: string;
   readonly query?: Record<string, string>;
+  /** Route parameters that differ from the scene's. */
+  readonly params?: (scene: Scene) => Record<string, string>;
   readonly body?: (scene: Scene) => object;
   readonly expected: Record<Actor, number>;
 }
@@ -177,6 +181,33 @@ const endpoints: Endpoint[] = [
     route: '/v1/host/properties/:propertyId/today',
     expected: forRoles(EVERY_ROLE, 200),
   },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/reservations/:reservationId',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/reservations/:reservationId/check-in',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/reservations/:reservationId/check-out',
+    params: (scene) => ({ reservationId: scene.inHouseReservationId }),
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/reservations/:reservationId/no-show',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/reservations/:reservationId/cancel',
+    body: () => ({ reason: 'Guest called' }),
+    expected: forRoles(EVERY_ROLE, 200),
+  },
 ];
 
 describe('host authorization', () => {
@@ -184,7 +215,7 @@ describe('host authorization', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    // Fixed, so the blocks and rates above stay in the future.
+    // Fixed, so the blocks and rates above stay in the future and today's guest is due.
     app = await createTestApp({ now: Temporal.Instant.from('2026-10-27T10:00:00Z') });
   });
 
@@ -201,7 +232,7 @@ describe('host authorization', () => {
       createSignedInUser(db, 'Newcomer'),
     ]);
     await addMember(db, team.propertyId, target.id, 'front_desk');
-    const [rateOverride, block] = await Promise.all([
+    const [rateOverride, block, arriving, inHouse] = await Promise.all([
       db
         .insertInto('rateOverrides')
         .values({
@@ -218,6 +249,13 @@ describe('host authorization', () => {
         nights: '[2026-11-02,2026-11-04)',
         blockReason: 'Deep clean',
       }),
+      createStay(db, { ...team, unitId: team.unitIds[0], nights: '[2026-10-27,2026-10-29)' }),
+      createStay(db, {
+        ...team,
+        unitId: team.unitIds[1],
+        nights: '[2026-10-26,2026-10-28)',
+        status: 'checked_in',
+      }),
     ]);
     return {
       params: {
@@ -227,8 +265,10 @@ describe('host authorization', () => {
         unitId: team.unitIds[0],
         rateOverrideId: rateOverride.id,
         blockId: block.id,
+        reservationId: arriving.id,
       },
       newcomerEmail: newcomer.email,
+      inHouseReservationId: inHouse.id,
       cookies: {
         outsider: outsider.cookie,
         front_desk: team.frontDesk.cookie,
@@ -255,8 +295,9 @@ describe('host authorization', () => {
   describe.each(endpoints)('$method $route', (endpoint) => {
     it.each(ACTORS)('as %s', async (actor) => {
       const scene = await createScene();
+      const params = { ...scene.params, ...endpoint.params?.(scene) };
       const path = endpoint.route.replace(/:(\w+)/g, (_match, name: string) => {
-        const value = scene.params[name];
+        const value = params[name];
         if (value === undefined) {
           throw new Error(`The scene has no value for :${name}`);
         }

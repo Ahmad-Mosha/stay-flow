@@ -1,7 +1,13 @@
-import type { HostReservationResponse, ReservationResponse } from '@stay-flow/contracts';
+import type {
+  HostReservationDetailResponse,
+  HostReservationResponse,
+  RefundResponse,
+  ReservationResponse,
+} from '@stay-flow/contracts';
 import { nightCount } from '../../platform/time/date-span.js';
 import type { UnitType } from '../inventory/inventory.service.js';
-import type { HostReservation } from './host-reservations.service.js';
+import type { Refund } from './cancellation-policy.js';
+import type { HostReservation, HostReservationDetail } from './host-reservations.service.js';
 import type { Reservation } from './reservation.js';
 
 export function toReservationResponse(
@@ -46,6 +52,36 @@ export function toHostReservationResponse(reservation: HostReservation): HostRes
     totalMinor: reservation.totalMinor,
     holdExpiresAt: holdExpiryOf(reservation),
     createdAt: reservation.createdAt.toString(),
+  };
+}
+
+export function toHostReservationDetailResponse(
+  reservation: HostReservationDetail,
+): HostReservationDetailResponse {
+  return {
+    ...toHostReservationResponse(reservation),
+    nightlyRates: reservation.nightlyRates.map((night) => ({
+      date: night.date.toString(),
+      rateMinor: night.rateMinor,
+    })),
+    policy: { ...reservation.policy },
+    refund: reservation.refund === null ? null : toRefundResponse(reservation.refund),
+    events: reservation.events.map((event) => ({
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      actor: event.actor,
+      userId: event.userId,
+      note: event.note,
+      occurredAt: event.occurredAt.toString(),
+    })),
+  };
+}
+
+export function toRefundResponse(refund: Refund): RefundResponse {
+  return {
+    freeUntil: refund.freeUntil.toString(),
+    refundMinor: refund.refundMinor,
+    feeMinor: refund.feeMinor,
   };
 }
 

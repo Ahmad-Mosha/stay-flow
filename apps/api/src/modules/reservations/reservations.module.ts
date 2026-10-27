@@ -10,6 +10,7 @@ import { HostReservationsService } from './host-reservations.service.js';
 import { ReservationsController } from './reservations.controller.js';
 import { ReservationsRepository } from './reservations.repository.js';
 import { ReservationsService } from './reservations.service.js';
+import { StayLifecycleService } from './stay-lifecycle.service.js';
 
 @Module({
   imports: [AccessModule, PropertiesModule, InventoryModule],
@@ -20,7 +21,8 @@ import { ReservationsService } from './reservations.service.js';
     HoldSweeper,
     HostReservationsRepository,
     HostReservationsService,
+    StayLifecycleService,
   ],
-  exports: [ReservationsService, HostReservationsService],
+  exports: [ReservationsService, HostReservationsService, StayLifecycleService],
 })
 export class ReservationsModule {}

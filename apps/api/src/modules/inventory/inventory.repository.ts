@@ -280,6 +280,32 @@ export class InventoryRepository {
     return true;
   }
 
+  /**
+   * Ends the reservation's stay on `end`: the nights from `end` on go back to the room. A stay
+   * that ends before its first night is released whole.
+   */
+  async endOccupancy(
+    trx: Transaction,
+    reservationId: string,
+    end: Temporal.PlainDate,
+  ): Promise<void> {
+    const endDate = end.toString();
+    await trx
+      .updateTable('occupancies')
+      .set({ releasedAt: sql<Date>`now()` })
+      .where('reservationId', '=', reservationId)
+      .where('releasedAt', 'is', null)
+      .where(sql<boolean>`lower(nights) >= ${endDate}::date`)
+      .execute();
+    await trx
+      .updateTable('occupancies')
+      .set({ nights: sql<string>`daterange(lower(nights), ${endDate}::date)` })
+      .where('reservationId', '=', reservationId)
+      .where('releasedAt', 'is', null)
+      .where(sql<boolean>`upper(nights) > ${endDate}::date`)
+      .execute();
+  }
+
   async releaseOccupancies(trx: Transaction, reservationIds: readonly string[]): Promise<void> {
     if (reservationIds.length === 0) {
       return;

@@ -81,6 +81,8 @@ interface ReservationInput {
   readonly nightlyRateMinor?: number;
   /** Such as `2026-10-20 09:00:00.123456+00`; now by default. */
   readonly createdAt?: string;
+  /** For a cancelled reservation; everything by default. */
+  readonly refundMinor?: number;
 }
 
 export async function createReservation(db: Database, input: ReservationInput) {
@@ -92,21 +94,24 @@ export async function createReservation(db: Database, input: ReservationInput) {
           date: night.toString(),
           rateMinor: rate,
         }));
+  const status = input.status ?? 'confirmed';
+  const totalMinor = rate === undefined ? 720_000 : rate * nightlyRates.length;
   return db
     .insertInto('reservations')
     .values({
       propertyId: input.propertyId,
       unitTypeId: input.unitTypeId,
       reference: input.reference ?? newReference(),
-      status: input.status ?? 'confirmed',
+      status,
       nights: input.nights,
       guests: 2,
       guestName: input.guestName ?? 'Test Guest',
       guestEmail: input.guestEmail ?? 'guest@example.com',
       currency: 'EGP',
-      totalMinor: rate === undefined ? 720_000 : rate * nightlyRates.length,
+      totalMinor,
       priceSnapshot: { nightlyRates },
-      policySnapshot: { freeCancellationHours: 48 },
+      policySnapshot: { freeCancellationHours: 48, checkInTime: '15:00', checkOutTime: '11:00' },
+      refundMinor: status === 'cancelled' ? (input.refundMinor ?? totalMinor) : null,
       holdExpiresAt: input.holdExpiresAt ?? null,
       ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
     })
