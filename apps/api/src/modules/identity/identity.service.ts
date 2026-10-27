@@ -3,8 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DATABASE, type Database } from '../../platform/database/database.js';
 import { AppError } from '../../platform/errors/app-error.js';
 import { type RateLimit, RateLimiter } from '../../platform/rate-limit/rate-limiter.js';
+import { hashSecretToken, newSecretToken } from '../../platform/security/secret-token.js';
 import { hashPassword, needsRehash, verifyPassword } from './password.js';
-import { hashSessionToken, newSessionToken } from './session-token.js';
 import { SessionsRepository } from './sessions.repository.js';
 import type { User } from './user.js';
 import { UsersRepository } from './users.repository.js';
@@ -105,12 +105,12 @@ export class IdentityService {
   }
 
   async signOut(token: string): Promise<void> {
-    await this.sessions.delete(hashSessionToken(token));
+    await this.sessions.delete(hashSecretToken(token));
   }
 
   /** The user a session token belongs to, or undefined if it is unknown or expired. */
   async authenticate(token: string): Promise<Authenticated | undefined> {
-    const session = await this.sessions.findActive(hashSessionToken(token));
+    const session = await this.sessions.findActive(hashSecretToken(token));
     if (session === undefined) {
       return undefined;
     }
@@ -119,8 +119,8 @@ export class IdentityService {
   }
 
   private async startSession(userId: string, db?: Database): Promise<SessionGrant> {
-    const token = newSessionToken();
-    const expiresAt = await this.sessions.insert(userId, hashSessionToken(token), db);
+    const token = newSecretToken();
+    const expiresAt = await this.sessions.insert(userId, hashSecretToken(token), db);
     return { token, expiresAt };
   }
 }

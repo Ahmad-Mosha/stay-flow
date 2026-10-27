@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import type { PropertyRole } from '../../src/modules/access/policy.js';
-import { hashSessionToken, newSessionToken } from '../../src/modules/identity/session-token.js';
 import type { Database } from '../../src/platform/database/database.js';
+import { hashSecretToken, newSecretToken } from '../../src/platform/security/secret-token.js';
 import { uniqueEmail } from './auth.js';
 import { createInventory } from './fixtures.js';
 
@@ -23,12 +23,12 @@ export async function createSignedInUser(db: Database, name = 'Test Host'): Prom
     .values({ name, email, passwordHash: UNUSED_PASSWORD_HASH })
     .returning('id')
     .executeTakeFirstOrThrow();
-  const token = newSessionToken();
+  const token = newSecretToken();
   await db
     .insertInto('sessions')
     .values({
       userId: id,
-      tokenHash: hashSessionToken(token),
+      tokenHash: hashSecretToken(token),
       expiresAt: sql<Date>`now() + interval '1 day'`,
     })
     .execute();
