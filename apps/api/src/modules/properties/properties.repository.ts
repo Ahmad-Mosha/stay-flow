@@ -5,6 +5,16 @@ import { DATABASE, type Database, type Transaction } from '../../platform/databa
 import type { Properties } from '../../platform/database/database.generated.js';
 import type { Property } from './property.js';
 
+export interface PropertyChanges {
+  readonly name?: string | undefined;
+  readonly checkInTime?: string | undefined;
+  readonly checkOutTime?: string | undefined;
+  readonly minNights?: number | undefined;
+  readonly maxNights?: number | undefined;
+  readonly bookingWindowDays?: number | undefined;
+  readonly freeCancellationHours?: number | undefined;
+}
+
 export interface NewProperty {
   readonly slug: string;
   readonly name: string;
@@ -43,6 +53,17 @@ export class PropertiesRepository {
       .insertInto('properties')
       .values(property)
       .onConflict((conflict) => conflict.column('slug').doNothing())
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toProperty(row);
+  }
+
+  /** Applies the changes, or returns undefined if no property has this id. */
+  async update(id: string, changes: PropertyChanges): Promise<Property | undefined> {
+    const row = await this.db
+      .updateTable('properties')
+      .set(changes)
+      .where('id', '=', id)
       .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toProperty(row);

@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   type CreatePropertyRequest,
   createPropertyRequestSchema,
   type HostPropertyListResponse,
   type HostPropertyResponse,
+  type UpdatePropertyRequest,
+  updatePropertyRequestSchema,
 } from '@stay-flow/contracts';
 import { ZodValidationPipe } from '../../platform/validation/zod-validation.pipe.js';
 import { CurrentAccess, type PropertyAccess } from '../access/property-access.js';
@@ -45,5 +47,16 @@ export class HostPropertiesController {
   @HostAccess('property.view')
   async get(@CurrentAccess() { propertyId, role }: PropertyAccess): Promise<HostPropertyResponse> {
     return toHostPropertyResponse(await this.properties.getById(propertyId), role);
+  }
+
+  @Patch(':propertyId')
+  @HostAccess('property.manage')
+  async update(
+    @CurrentAccess() { propertyId, role }: PropertyAccess,
+    @Body(new ZodValidationPipe(updatePropertyRequestSchema)) body: UpdatePropertyRequest,
+  ): Promise<HostPropertyResponse> {
+    const { stayRules, ...settings } = body;
+    const property = await this.properties.update(propertyId, { ...settings, ...stayRules });
+    return toHostPropertyResponse(property, role);
   }
 }

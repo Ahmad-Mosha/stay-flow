@@ -5,6 +5,8 @@ export type { PropertyRole };
 /** Which roles may do what at a property. Every host endpoint names one of these permissions. */
 const allowedRoles = {
   'property.view': ['owner', 'manager', 'front_desk'],
+  'property.manage': ['owner', 'manager'],
+  'inventory.manage': ['owner', 'manager'],
   'team.view': ['owner', 'manager', 'front_desk'],
   'team.manage': ['owner'],
 } as const satisfies Record<string, readonly PropertyRole[]>;

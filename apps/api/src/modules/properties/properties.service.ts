@@ -1,12 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Temporal } from 'temporal-polyfill';
 import { DATABASE, type Database, type Transaction } from '../../platform/database/database.js';
+import { isPgError, PgErrorCode } from '../../platform/database/pg-errors.js';
 import { AppError } from '../../platform/errors/app-error.js';
 import { Clock } from '../../platform/time/clock.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
 import { MembershipsService } from '../access/memberships.service.js';
 import type { PropertyRole } from '../access/policy.js';
-import { type NewProperty, PropertiesRepository } from './properties.repository.js';
+import {
+  type NewProperty,
+  PropertiesRepository,
+  type PropertyChanges,
+} from './properties.repository.js';
 import type { Property } from './property.js';
 import { checkStay } from './stay-rules.js';
 
@@ -48,12 +53,25 @@ export class PropertiesService {
     });
   }
 
+  /** Changes the settings. Bookings already made keep the terms in their policy snapshot. */
+  async update(id: string, changes: PropertyChanges): Promise<Property> {
+    try {
+      return (await this.properties.update(id, changes)) ?? notFound();
+    } catch (error) {
+      // Only reachable when one side of the rule comes from the request and the other is stored.
+      if (isPgError(error, PgErrorCode.CheckViolation, 'properties_stay_lengths')) {
+        throw new AppError(
+          'STAY_RULES_CONFLICT',
+          'The longest stay cannot be shorter than the shortest stay.',
+        );
+      }
+      throw error;
+    }
+  }
+
   async getById(id: string): Promise<Property> {
     const [property] = await this.properties.findByIds([id]);
-    if (property === undefined) {
-      throw new AppError('NOT_FOUND', 'No property has this id.');
-    }
-    return property;
+    return property ?? notFound();
   }
 
   /** Pass `trx` when calling from inside a transaction. */
@@ -76,4 +94,8 @@ export class PropertiesService {
       throw new AppError(violation.code, violation.detail);
     }
   }
+}
+
+function notFound(): never {
+  throw new AppError('NOT_FOUND', 'No property has this id.');
 }

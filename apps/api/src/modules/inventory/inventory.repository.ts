@@ -15,6 +15,12 @@ export interface UnitType {
   readonly baseRateMinor: number;
 }
 
+export interface Unit {
+  readonly id: string;
+  readonly unitTypeId: string;
+  readonly name: string;
+}
+
 export interface UnitTypeWithFreeUnits extends UnitType {
   readonly freeUnits: number;
 }
@@ -46,7 +52,7 @@ export interface NewOccupancy {
 /** Rate overrides grouped by room type id. */
 export type OverridesByUnitType = ReadonlyMap<string, readonly RateOverride[]>;
 
-const UNIT_TYPE_COLUMNS = [
+export const UNIT_TYPE_COLUMNS = [
   'id',
   'slug',
   'name',
@@ -194,18 +200,9 @@ export class InventoryRepository {
     }));
   }
 
-  /**
-   * Takes the room for the nights, or fails with an exclusion violation if it is taken. Locks
-   * the room first: bookings racing for it then queue up, instead of inserting clashing rows at
-   * the same moment, which can deadlock the exclusion check.
-   */
+  /** Takes the room for the stay, or fails with an exclusion violation if it is taken. */
   async occupy(trx: Transaction, occupancy: NewOccupancy): Promise<void> {
-    await trx
-      .selectFrom('units')
-      .select('id')
-      .where('id', '=', occupancy.unitId)
-      .forNoKeyUpdate()
-      .execute();
+    await lockUnit(trx, occupancy.unitId);
     await trx
       .insertInto('occupancies')
       .values({
@@ -228,4 +225,12 @@ export class InventoryRepository {
       .where('releasedAt', 'is', null)
       .execute();
   }
+}
+
+/**
+ * Locks the room before taking its nights. Writers racing for one room then queue up instead of
+ * inserting clashing rows at the same moment, which can deadlock the exclusion check.
+ */
+async function lockUnit(trx: Transaction, unitId: string): Promise<void> {
+  await trx.selectFrom('units').select('id').where('id', '=', unitId).forNoKeyUpdate().execute();
 }

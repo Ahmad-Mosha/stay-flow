@@ -1,8 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/platform/database/database.js';
-import { createSignedInUser, createTeam } from './support/access.js';
+import { addMember, createSignedInUser, createTeam } from './support/access.js';
 import { connectTestDatabase, uniqueSlug } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
@@ -12,9 +13,8 @@ type Actor = (typeof ACTORS)[number];
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 interface Scene {
-  readonly propertyId: string;
-  /** The member that PATCH and DELETE act on. */
-  readonly targetUserId: string;
+  /** The values of the route parameters, such as `propertyId` and `userId`. */
+  readonly params: Record<string, string>;
   /** Someone with an account who is not on the team yet. */
   readonly newcomerEmail: string;
   readonly cookies: Record<Exclude<Actor, 'anonymous'>, string>;
@@ -45,6 +45,7 @@ function forRoles(roles: readonly Actor[], status: number): Record<Actor, number
 }
 
 const EVERY_ROLE = ['front_desk', 'manager', 'owner'] as const;
+const MANAGERS = ['manager', 'owner'] as const;
 
 // The expected answers, written out by hand rather than read from the policy, so a wrong
 // policy entry fails here.
@@ -65,6 +66,12 @@ const endpoints: Endpoint[] = [
     method: 'GET',
     route: '/v1/host/properties/:propertyId',
     expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'PATCH',
+    route: '/v1/host/properties/:propertyId',
+    body: () => ({ name: 'Renamed Guesthouse' }),
+    expected: forRoles(MANAGERS, 200),
   },
   {
     method: 'GET',
@@ -88,6 +95,56 @@ const endpoints: Endpoint[] = [
     route: '/v1/host/properties/:propertyId/members/:userId',
     expected: forRoles(['owner'], 204),
   },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/unit-types',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/unit-types',
+    body: () => ({ slug: 'suite', name: 'Suite', maxGuests: 3, baseRateMinor: 300_000 }),
+    expected: forRoles(MANAGERS, 201),
+  },
+  {
+    method: 'PATCH',
+    route: '/v1/host/properties/:propertyId/unit-types/:unitTypeId',
+    body: () => ({ name: 'Twin' }),
+    expected: forRoles(MANAGERS, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/units',
+    body: (scene) => ({ unitTypeId: scene.params.unitTypeId, name: '103' }),
+    expected: forRoles(MANAGERS, 201),
+  },
+  {
+    method: 'PATCH',
+    route: '/v1/host/properties/:propertyId/units/:unitId',
+    body: () => ({ name: '201' }),
+    expected: forRoles(MANAGERS, 200),
+  },
+  {
+    method: 'GET',
+    route: '/v1/host/properties/:propertyId/rate-overrides',
+    expected: forRoles(EVERY_ROLE, 200),
+  },
+  {
+    method: 'POST',
+    route: '/v1/host/properties/:propertyId/rate-overrides',
+    body: (scene) => ({
+      unitTypeId: scene.params.unitTypeId,
+      nights: { from: '2027-01-10', to: '2027-01-12' },
+      rateMinor: 300_000,
+      label: 'Festival',
+    }),
+    expected: forRoles(MANAGERS, 201),
+  },
+  {
+    method: 'DELETE',
+    route: '/v1/host/properties/:propertyId/rate-overrides/:rateOverrideId',
+    expected: forRoles(MANAGERS, 204),
+  },
 ];
 
 describe('host authorization', () => {
@@ -95,7 +152,8 @@ describe('host authorization', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    // Fixed, so the rates above stay in the future.
+    app = await createTestApp({ now: Temporal.Instant.from('2026-10-27T10:00:00Z') });
   });
 
   afterAll(async () => {
@@ -110,13 +168,25 @@ describe('host authorization', () => {
       createSignedInUser(db, 'Target'),
       createSignedInUser(db, 'Newcomer'),
     ]);
-    await db
-      .insertInto('propertyMembers')
-      .values({ propertyId: team.propertyId, userId: target.id, role: 'front_desk' })
-      .execute();
+    await addMember(db, team.propertyId, target.id, 'front_desk');
+    const rateOverride = await db
+      .insertInto('rateOverrides')
+      .values({
+        unitTypeId: team.unitTypeId,
+        nights: '[2026-12-24,2026-12-26)',
+        rateMinor: 350_000,
+        label: 'Christmas',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
     return {
-      propertyId: team.propertyId,
-      targetUserId: target.id,
+      params: {
+        propertyId: team.propertyId,
+        userId: target.id,
+        unitTypeId: team.unitTypeId,
+        unitId: team.unitIds[0],
+        rateOverrideId: rateOverride.id,
+      },
       newcomerEmail: newcomer.email,
       cookies: {
         outsider: outsider.cookie,
@@ -144,9 +214,13 @@ describe('host authorization', () => {
   describe.each(endpoints)('$method $route', (endpoint) => {
     it.each(ACTORS)('as %s', async (actor) => {
       const scene = await createScene();
-      const path = endpoint.route
-        .replace(':propertyId', scene.propertyId)
-        .replace(':userId', scene.targetUserId);
+      const path = endpoint.route.replace(/:(\w+)/g, (_match, name: string) => {
+        const value = scene.params[name];
+        if (value === undefined) {
+          throw new Error(`The scene has no value for :${name}`);
+        }
+        return value;
+      });
 
       let pending = call(endpoint.method, path);
       if (actor !== 'anonymous') {

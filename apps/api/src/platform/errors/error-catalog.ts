@@ -40,6 +40,9 @@ const domainErrors = {
   NO_ACCOUNT: { status: 422, title: 'No account with this email' },
   ALREADY_MEMBER: { status: 409, title: 'Already a member' },
   LAST_OWNER: { status: 409, title: 'Property needs an owner' },
+  STAY_RULES_CONFLICT: { status: 422, title: 'Stay rules contradict each other' },
+  UNIT_NAME_TAKEN: { status: 409, title: 'Room name already taken' },
+  RATES_OVERLAP: { status: 409, title: 'Rates overlap' },
 } as const satisfies Record<string, ErrorDefinition>;
 
 /** Every error code the API returns. Codes are a public contract: never rename one. */

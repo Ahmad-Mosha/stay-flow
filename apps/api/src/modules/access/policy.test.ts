@@ -9,6 +9,14 @@ describe('can', () => {
     }
   });
 
+  it('lets owners and managers run the property, but not the front desk', () => {
+    for (const permission of ['property.manage', 'inventory.manage'] as const) {
+      expect(can('owner', permission)).toBe(true);
+      expect(can('manager', permission)).toBe(true);
+      expect(can('front_desk', permission)).toBe(false);
+    }
+  });
+
   it('leaves the team to owners', () => {
     expect(can('owner', 'team.manage')).toBe(true);
     expect(can('manager', 'team.manage')).toBe(false);
