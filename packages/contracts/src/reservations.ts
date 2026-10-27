@@ -6,6 +6,7 @@ import {
   emailSchema,
   guestsSchema,
   isoDateSchema,
+  localTimeSchema,
   slugSchema,
   stayDatesInOrder,
 } from './common.js';
@@ -64,3 +65,23 @@ export const reservationResponseSchema = z.object({
 });
 
 export type ReservationResponse = z.infer<typeof reservationResponseSchema>;
+
+/** The terms a guest booked under. The booking keeps them even if the property changes its own. */
+export const bookingPolicySchema = z.object({
+  freeCancellationHours: z.int().nonnegative(),
+  checkInTime: localTimeSchema,
+  checkOutTime: localTimeSchema,
+});
+
+/**
+ * What a cancellation pays back. While a booking is confirmed, what cancelling now would refund;
+ * once it is cancelled, what was refunded.
+ */
+export const refundSchema = z.object({
+  /** Cancelling before this moment refunds everything. */
+  freeUntil: z.iso.datetime(),
+  refundMinor: amountMinorSchema,
+  feeMinor: amountMinorSchema,
+});
+
+export type RefundResponse = z.infer<typeof refundSchema>;

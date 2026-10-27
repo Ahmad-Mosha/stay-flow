@@ -7,7 +7,8 @@ import {
   nightsUpTo,
   yearMonthSchema,
 } from './common.js';
-import { reservationStatusSchema } from './reservations.js';
+import { nightlyRateSchema } from './availability.js';
+import { bookingPolicySchema, refundSchema, reservationStatusSchema } from './reservations.js';
 
 const roomSchema = z.object({ id: z.uuid(), name: z.string() });
 
@@ -33,6 +34,43 @@ export const hostReservationResponseSchema = z.object({
 });
 
 export type HostReservationResponse = z.infer<typeof hostReservationResponseSchema>;
+
+/** One step in a reservation's history. */
+export const reservationEventResponseSchema = z.object({
+  fromStatus: reservationStatusSchema.nullable(),
+  toStatus: reservationStatusSchema,
+  actor: z.enum(['guest', 'host', 'system']),
+  /** The staff member, for a change the host made. */
+  userId: z.uuid().nullable(),
+  note: z.string().nullable(),
+  occurredAt: z.iso.datetime(),
+});
+
+export type ReservationEventResponse = z.infer<typeof reservationEventResponseSchema>;
+
+/**
+ * `GET /v1/host/properties/:propertyId/reservations/:reservationId`, and the answer to every
+ * action on it: check-in, check-out, no-show and cancel.
+ */
+export const hostReservationDetailResponseSchema = hostReservationResponseSchema.extend({
+  nightlyRates: z.array(nightlyRateSchema),
+  policy: bookingPolicySchema,
+  refund: refundSchema.nullable(),
+  /** Oldest first. */
+  events: z.array(reservationEventResponseSchema),
+});
+
+export type HostReservationDetailResponse = z.infer<typeof hostReservationDetailResponseSchema>;
+
+/** `POST /v1/host/properties/:propertyId/reservations/:reservationId/cancel` */
+export const hostCancelRequestSchema = z.object({
+  /** Why, for the booking's history, such as `Guest called: flight cancelled`. */
+  reason: z.string().trim().min(1).max(500),
+  /** Refund everything whatever the policy says, as when the property cancels. */
+  waiveFee: z.boolean().default(false),
+});
+
+export type HostCancelRequest = z.infer<typeof hostCancelRequestSchema>;
 
 const countSchema = z.int().nonnegative();
 

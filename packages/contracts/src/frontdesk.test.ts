@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { reservationListQuerySchema, roomCalendarQuerySchema } from './frontdesk.js';
+import {
+  hostCancelRequestSchema,
+  reservationListQuerySchema,
+  roomCalendarQuerySchema,
+} from './frontdesk.js';
 
 describe('reservationListQuerySchema', () => {
   it('reads a comma-separated status list and defaults the page size', () => {
@@ -34,5 +38,18 @@ describe('roomCalendarQuerySchema', () => {
     expect(
       roomCalendarQuerySchema.safeParse({ from: '2026-12-01', to: '2027-02-02' }).success,
     ).toBe(false);
+  });
+});
+
+describe('hostCancelRequestSchema', () => {
+  it('applies the policy unless the fee is waived', () => {
+    expect(hostCancelRequestSchema.parse({ reason: 'Flight cancelled' })).toEqual({
+      reason: 'Flight cancelled',
+      waiveFee: false,
+    });
+  });
+
+  it('needs a reason', () => {
+    expect(hostCancelRequestSchema.safeParse({ reason: '  ' }).success).toBe(false);
   });
 });
