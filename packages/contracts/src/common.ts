@@ -54,18 +54,19 @@ const DAY_MS = 86_400_000;
 
 /**
  * Nights from `from` up to, but not including, `to`, the way a stay runs from check-in to
- * check-out: `{ from: '2026-12-18', to: '2026-12-20' }` is two nights.
+ * check-out: `{ from: '2026-12-18', to: '2026-12-20' }` is two nights. At most `maxNights`.
  */
-export const nightsSchema = z
-  .object({ from: isoDateSchema, to: isoDateSchema })
-  .refine((nights) => nights.to > nights.from, { path: ['to'], message: 'Must be after from' })
-  .refine(
-    (nights) => (Date.parse(nights.to) - Date.parse(nights.from)) / DAY_MS <= MAX_SPAN_NIGHTS,
-    {
+export function nightsUpTo(maxNights: number) {
+  return z
+    .object({ from: isoDateSchema, to: isoDateSchema })
+    .refine((nights) => nights.to > nights.from, { path: ['to'], message: 'Must be after from' })
+    .refine((nights) => (Date.parse(nights.to) - Date.parse(nights.from)) / DAY_MS <= maxNights, {
       path: ['to'],
-      message: `Covers at most ${String(MAX_SPAN_NIGHTS)} nights`,
-    },
-  );
+      message: `Covers at most ${String(maxNights)} nights`,
+    });
+}
+
+export const nightsSchema = nightsUpTo(MAX_SPAN_NIGHTS);
 
 export type Nights = z.infer<typeof nightsSchema>;
 
