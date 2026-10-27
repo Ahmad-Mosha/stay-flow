@@ -42,6 +42,13 @@ export const demoProperty = {
   freeCancellationHours: 48,
 } as const;
 
+/** The owner you sign in as to try the host dashboard. Demo data only, never a real account. */
+export const demoHost = {
+  name: 'Amira Salem',
+  email: 'host@example.com',
+  password: 'nubia-demo-password',
+} as const;
+
 /** Holiday rates cover the nights of 18 December to 4 January. */
 export const holidaySeason = { label: 'Winter holidays', month: 12, day: 18, nights: 18 } as const;
 
