@@ -18,8 +18,8 @@ describe('loadConfig', () => {
         poolMax: 10,
         statementTimeoutMs: 5_000,
       },
-      holds: {
-        sweepIntervalMs: 30_000,
+      jobs: {
+        holdSweepIntervalMs: 30_000,
       },
       mail: {
         smtpUrl: 'smtp://localhost:1025',

@@ -1,71 +1,36 @@
-import {
-  type BeforeApplicationShutdown,
-  Inject,
-  Injectable,
-  type OnApplicationBootstrap,
-} from '@nestjs/common';
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import type { AppConfig } from '../../config/config.js';
-import { APP_CONFIG } from '../../config/config.module.js';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { ReservationsService } from './reservations.service.js';
 
 const BATCH_SIZE = 500;
 
-/** Expires holds in the background, so their rooms come back even if nobody tries to book them. */
+/**
+ * Expires lapsed holds, so their rooms come back even if nobody tries to book them. The worker
+ * runs it on a timer. Bookings never wait for it: they release a lapsed hold in their way.
+ */
 @Injectable()
-export class HoldSweeper implements OnApplicationBootstrap, BeforeApplicationShutdown {
-  private timer: NodeJS.Timeout | undefined;
-  private running: Promise<void> = Promise.resolve();
-  private stopped = false;
-
+export class HoldSweeper {
   constructor(
-    @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly reservations: ReservationsService,
-    @InjectPinoLogger(HoldSweeper.name) private readonly logger: PinoLogger,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (this.config.holds.sweepIntervalMs > 0) {
-      this.scheduleNext();
-    }
-  }
-
-  /** Runs before the database pool closes, so a sweep in progress can finish. */
-  async beforeApplicationShutdown(): Promise<void> {
-    this.stopped = true;
-    clearTimeout(this.timer);
-    await this.running;
+    // Not @InjectPinoLogger(): it only works for classes imported before the LoggerModule is.
+    private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(HoldSweeper.name);
   }
 
   /** Expires every due hold, one batch per transaction. Returns how many expired. */
-  async sweep(): Promise<number> {
+  async sweep(signal?: AbortSignal): Promise<number> {
     let total = 0;
     for (;;) {
       const expired = await this.reservations.expireDueHolds(BATCH_SIZE);
       total += expired;
-      if (expired < BATCH_SIZE) {
-        return total;
+      if (expired < BATCH_SIZE || signal?.aborted === true) {
+        break;
       }
     }
-  }
-
-  // A timeout per run rather than an interval, so a slow sweep never overlaps the next.
-  private scheduleNext(): void {
-    this.timer = setTimeout(() => {
-      this.running = this.sweep()
-        .then((expired) => {
-          if (expired > 0) {
-            this.logger.info({ expired }, 'Expired holds');
-          }
-        })
-        .catch((error: unknown) => {
-          this.logger.error({ err: error }, 'Hold sweep failed');
-        })
-        .finally(() => {
-          if (!this.stopped) {
-            this.scheduleNext();
-          }
-        });
-    }, this.config.holds.sweepIntervalMs);
+    if (total > 0) {
+      this.logger.info({ expired: total }, 'Expired holds');
+    }
+    return total;
   }
 }

@@ -37,6 +37,8 @@ import { StayLifecycleService } from './stay-lifecycle.service.js';
     HostReservationsService,
     StayLifecycleService,
     GuestReservationsService,
+    // Run by the worker's scheduler.
+    HoldSweeper,
   ],
 })
 export class ReservationsModule {}

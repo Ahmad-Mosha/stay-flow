@@ -9,7 +9,8 @@ import { Clock, FixedClock } from '../../src/platform/time/clock.js';
 import { WorkerModule } from '../../src/worker.module.js';
 
 interface TestWorkerOptions {
-  readonly smtpUrl: string;
+  /** Where emails go. Without it, every send fails: for tests that never drain the outbox. */
+  readonly smtpUrl?: string;
   /** Overrides single environment variables. */
   readonly env?: Record<string, string>;
   /** Freezes the application clock at this instant. */
@@ -21,9 +22,9 @@ export interface TestWorker {
   readonly outbox: OutboxWorker;
 }
 
-/** Boots the worker in this process with its loop off: tests call `outbox.drain()` themselves. */
+/** Boots the worker in this process with every job off: tests run the jobs themselves. */
 export async function createTestWorker({
-  smtpUrl,
+  smtpUrl = 'smtp://127.0.0.1:1',
   env = {},
   now,
 }: TestWorkerOptions): Promise<TestWorker> {

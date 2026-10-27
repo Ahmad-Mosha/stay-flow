@@ -23,8 +23,6 @@ export async function createTestApp({
     NODE_ENV: 'test',
     LOG_LEVEL: 'silent',
     DATABASE_URL: inject('databaseUrl'),
-    // Tests sweep expired holds themselves, when they choose to.
-    HOLD_SWEEP_INTERVAL_MS: '0',
     // Lets a test act as several clients by sending X-Forwarded-For.
     TRUST_PROXY_HOPS: '1',
     ...env,

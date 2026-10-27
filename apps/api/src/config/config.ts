@@ -10,16 +10,17 @@ export interface DatabaseConfig {
   readonly statementTimeoutMs: number;
 }
 
-export interface HoldsConfig {
-  /** How often expired holds are swept; 0 turns the sweeper off. */
-  readonly sweepIntervalMs: number;
-}
-
 export interface HttpConfig {
   /** Proxies in front of the API whose X-Forwarded-For entries are trusted to name the client. */
   readonly trustProxyHops: number;
   /** Browser origins, besides the API's own, allowed to send state-changing requests. */
   readonly trustedOrigins: readonly string[];
+}
+
+/** The pause between runs of each of the worker's jobs. 0 turns a job off, so tests run it. */
+export interface JobsConfig {
+  /** Expiring lapsed holds. */
+  readonly holdSweepIntervalMs: number;
 }
 
 export interface MailConfig {
@@ -46,7 +47,7 @@ export interface AppConfig {
   readonly logLevel: LogLevel;
   readonly http: HttpConfig;
   readonly database: DatabaseConfig;
-  readonly holds: HoldsConfig;
+  readonly jobs: JobsConfig;
   readonly mail: MailConfig;
   readonly outbox: OutboxConfig;
 }
@@ -114,8 +115,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       poolMax: parsed.DATABASE_POOL_MAX,
       statementTimeoutMs: parsed.DATABASE_STATEMENT_TIMEOUT_MS,
     },
-    holds: {
-      sweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
+    jobs: {
+      holdSweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
     },
     mail: {
       smtpUrl: parsed.SMTP_URL,

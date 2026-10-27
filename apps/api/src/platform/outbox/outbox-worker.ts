@@ -1,9 +1,4 @@
-import {
-  type BeforeApplicationShutdown,
-  Inject,
-  Injectable,
-  type OnApplicationBootstrap,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import type { AppConfig, OutboxConfig } from '../../config/config.js';
 import { APP_CONFIG } from '../../config/config.module.js';
@@ -22,12 +17,9 @@ import { MAX_ATTEMPTS, retryDelayMs } from './retry-policy.js';
  * backoff; after MAX_ATTEMPTS, or a permanent failure, the event is dead.
  */
 @Injectable()
-export class OutboxWorker implements OnApplicationBootstrap, BeforeApplicationShutdown {
+export class OutboxWorker {
   private readonly config: OutboxConfig;
   private readonly handlers: ReadonlyMap<string, OutboxHandler>;
-  private timer: NodeJS.Timeout | undefined;
-  private running: Promise<void> = Promise.resolve();
-  private stopped = false;
 
   constructor(
     @Inject(APP_CONFIG) config: AppConfig,
@@ -41,36 +33,25 @@ export class OutboxWorker implements OnApplicationBootstrap, BeforeApplicationSh
     this.handlers = new Map(handlers.map((handler) => [handler.type, handler]));
   }
 
-  onApplicationBootstrap(): void {
-    if (this.config.pollIntervalMs > 0) {
-      this.loop(0);
-    }
-  }
-
-  /** Stops claiming, lets the event in hand finish, and hands back the rest of its batch. */
-  async beforeApplicationShutdown(): Promise<void> {
-    this.stopped = true;
-    clearTimeout(this.timer);
-    await this.running;
-  }
-
-  /** Delivers every due event, batch after batch. Returns how many it claimed. */
-  async drain(): Promise<number> {
+  /**
+   * Delivers every due event, batch after batch. Once `signal` aborts, it lets the event in hand
+   * finish and hands back the rest of its batch. Returns how many events it claimed.
+   */
+  async drain(signal?: AbortSignal): Promise<number> {
     let total = 0;
     for (;;) {
-      const claimed = await this.runBatch();
+      const claimed = await this.runBatch(signal);
       total += claimed;
-      if (claimed < this.config.batchSize || this.stopped) {
+      if (claimed < this.config.batchSize || signal?.aborted === true) {
         return total;
       }
     }
   }
 
-  /** Claims one batch and delivers it. Returns how many events it claimed. */
-  async runBatch(): Promise<number> {
+  private async runBatch(signal: AbortSignal | undefined): Promise<number> {
     const events = await this.outbox.claim(this.config.batchSize, this.config.leaseMs);
     for (const [index, event] of events.entries()) {
-      if (this.stopped) {
+      if (signal?.aborted === true) {
         await this.outbox.release(events.slice(index));
         break;
       }
@@ -111,23 +92,5 @@ export class OutboxWorker implements OnApplicationBootstrap, BeforeApplicationSh
     const delayMs = retryDelayMs(event.attempt);
     await this.outbox.retryLater(event, reason, delayMs);
     this.logger.warn({ ...context, retryInMs: delayMs }, 'Outbox delivery failed, will retry');
-  }
-
-  // A timeout per run rather than an interval, so batches never overlap. A full batch means more
-  // may be waiting, so the next one starts at once.
-  private loop(delayMs: number): void {
-    this.timer = setTimeout(() => {
-      this.running = this.runBatch()
-        .then((claimed) => (claimed === this.config.batchSize ? 0 : this.config.pollIntervalMs))
-        .catch((error: unknown) => {
-          this.logger.error({ err: error }, 'Outbox batch failed');
-          return this.config.pollIntervalMs;
-        })
-        .then((next) => {
-          if (!this.stopped) {
-            this.loop(next);
-          }
-        });
-    }, delayMs);
   }
 }
