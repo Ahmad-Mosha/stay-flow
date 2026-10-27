@@ -85,3 +85,28 @@ export const refundSchema = z.object({
 });
 
 export type RefundResponse = z.infer<typeof refundSchema>;
+
+/**
+ * `GET /v1/guest/reservation`: the booking a manage-booking link opens. The link's token goes in
+ * an `Authorization: Bearer` header.
+ */
+export const guestReservationResponseSchema = reservationResponseSchema.extend({
+  property: z.object({ slug: z.string(), name: z.string() }),
+  policy: bookingPolicySchema,
+  /** What cancelling now would refund, or what was refunded. Null for other statuses. */
+  refund: refundSchema.nullable(),
+});
+
+export type GuestReservationResponse = z.infer<typeof guestReservationResponseSchema>;
+
+/** `POST /v1/guest/reservation/cancel`, with the link's token. */
+export const guestCancelRequestSchema = z.object({
+  /**
+   * The refund the guest was shown. If cancelling now would refund a different amount, as when
+   * the free-cancellation deadline passed in between, nothing is cancelled.
+   */
+  expectedRefundMinor: amountMinorSchema,
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+
+export type GuestCancelRequest = z.infer<typeof guestCancelRequestSchema>;
