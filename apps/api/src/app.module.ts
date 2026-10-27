@@ -13,6 +13,7 @@ import { ErrorsModule } from './platform/errors/errors.module.js';
 import { HealthModule } from './platform/health/health.module.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
 import { LoggingModule } from './platform/logging/logging.module.js';
+import { OutboxModule } from './platform/outbox/outbox.module.js';
 import { RateLimitModule } from './platform/rate-limit/rate-limit.module.js';
 import { SecurityModule } from './platform/security/security.module.js';
 import { TimeModule } from './platform/time/time.module.js';
@@ -29,6 +30,7 @@ export class AppModule {
         ErrorsModule,
         TimeModule,
         IdempotencyModule,
+        OutboxModule,
         RateLimitModule,
         SecurityModule,
         HealthModule,

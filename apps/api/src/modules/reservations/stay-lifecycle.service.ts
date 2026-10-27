@@ -2,10 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Temporal } from 'temporal-polyfill';
 import { DATABASE, type Database, type Transaction } from '../../platform/database/database.js';
 import { AppError } from '../../platform/errors/app-error.js';
+import { OutboxService } from '../../platform/outbox/outbox.service.js';
 import { Clock } from '../../platform/time/clock.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PropertiesService } from '../properties/properties.service.js';
 import { refundFor } from './cancellation-policy.js';
+import { reservationCancelled } from './outbox-events.js';
 import type { Actor, Reservation, ReservationStatus } from './reservation.js';
 import { type Move, ReservationsRepository } from './reservations.repository.js';
 
@@ -40,6 +42,7 @@ export class StayLifecycleService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly clock: Clock,
+    private readonly outbox: OutboxService,
     private readonly properties: PropertiesService,
     private readonly inventory: InventoryService,
     private readonly reservations: ReservationsRepository,
@@ -125,6 +128,7 @@ export class StayLifecycleService {
       );
       if (moved) {
         await this.inventory.releaseUnits(trx, [id]);
+        await this.outbox.enqueue(trx, reservationCancelled(id, cancellation.actor));
       }
     });
   }

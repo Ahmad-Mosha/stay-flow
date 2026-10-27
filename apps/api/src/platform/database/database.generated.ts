@@ -63,6 +63,18 @@ export interface Occupancies {
   unitId: string;
 }
 
+export interface OutboxEvents {
+  attempts: Generated<number>;
+  availableAt: Generated<Timestamp>;
+  createdAt: Generated<Timestamp>;
+  deadAt: Timestamp | null;
+  id: Generated<string>;
+  lastError: string | null;
+  payload: Json;
+  processedAt: Timestamp | null;
+  type: string;
+}
+
 export interface Properties {
   bookingWindowDays: Generated<number>;
   checkInTime: Generated<string>;
@@ -176,6 +188,7 @@ export interface DB {
   guestAccessTokens: GuestAccessTokens;
   idempotencyKeys: IdempotencyKeys;
   occupancies: Occupancies;
+  outboxEvents: OutboxEvents;
   properties: Properties;
   propertyMembers: PropertyMembers;
   rateLimits: RateLimits;

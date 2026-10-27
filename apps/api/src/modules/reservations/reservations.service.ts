@@ -6,9 +6,11 @@ import {
   IdempotencyService,
   type IdempotentResult,
 } from '../../platform/idempotency/idempotency.service.js';
+import { OutboxService } from '../../platform/outbox/outbox.service.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PropertiesService } from '../properties/properties.service.js';
+import { reservationConfirmed } from './outbox-events.js';
 import type { Guest, Reservation, ReservationStatus } from './reservation.js';
 import { toReservationResponse } from './reservation-response.js';
 import { type DueHolds, ReservationsRepository } from './reservations.repository.js';
@@ -25,6 +27,7 @@ export class ReservationsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly idempotency: IdempotencyService,
+    private readonly outbox: OutboxService,
     private readonly properties: PropertiesService,
     private readonly inventory: InventoryService,
     private readonly reservations: ReservationsRepository,
@@ -92,6 +95,7 @@ export class ReservationsService {
           ? new AppError('HOLD_EXPIRED', 'This hold has expired. Place a new hold to book.')
           : notHeld(status);
       }
+      await this.outbox.enqueue(trx, reservationConfirmed(id));
       const reservation = await this.getById(trx, id);
       const unitType = await this.inventory.getUnitTypeById(trx, reservation.unitTypeId);
       return toReservationResponse(reservation, unitType);
