@@ -32,6 +32,7 @@ export class WorkerProcess {
         LOG_LEVEL: 'info',
         DATABASE_URL: inject('databaseUrl'),
         HOLD_SWEEP_INTERVAL_MS: '0',
+        NIGHT_AUDIT_INTERVAL_MS: '0',
         OUTBOX_POLL_INTERVAL_MS: '50',
         ...env,
       },

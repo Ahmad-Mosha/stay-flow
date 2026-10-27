@@ -21,6 +21,8 @@ export interface HttpConfig {
 export interface JobsConfig {
   /** Expiring lapsed holds. */
   readonly holdSweepIntervalMs: number;
+  /** Marking missed arrivals as no-shows. */
+  readonly nightAuditIntervalMs: number;
 }
 
 export interface MailConfig {
@@ -82,6 +84,7 @@ const envSchema = z.object({
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
   HOLD_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
+  NIGHT_AUDIT_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).default('smtp://localhost:1025'),
   MAIL_FROM: z.string().trim().min(3).default('Stay Flow <bookings@stayflow.test>'),
   WEB_URL: originSchema.default('http://localhost:3001'),
@@ -117,6 +120,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     jobs: {
       holdSweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
+      nightAuditIntervalMs: parsed.NIGHT_AUDIT_INTERVAL_MS,
     },
     mail: {
       smtpUrl: parsed.SMTP_URL,

@@ -20,6 +20,7 @@ describe('loadConfig', () => {
       },
       jobs: {
         holdSweepIntervalMs: 30_000,
+        nightAuditIntervalMs: 300_000,
       },
       mail: {
         smtpUrl: 'smtp://localhost:1025',

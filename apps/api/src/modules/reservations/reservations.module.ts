@@ -10,6 +10,7 @@ import { HoldsController } from './holds.controller.js';
 import { HostReservationsController } from './host-reservations.controller.js';
 import { HostReservationsRepository } from './host-reservations.repository.js';
 import { HostReservationsService } from './host-reservations.service.js';
+import { NightAudit } from './night-audit.js';
 import { ReservationsController } from './reservations.controller.js';
 import { ReservationsRepository } from './reservations.repository.js';
 import { ReservationsService } from './reservations.service.js';
@@ -31,6 +32,7 @@ import { StayLifecycleService } from './stay-lifecycle.service.js';
     HostReservationsService,
     StayLifecycleService,
     GuestReservationsService,
+    NightAudit,
   ],
   exports: [
     ReservationsService,
@@ -39,6 +41,7 @@ import { StayLifecycleService } from './stay-lifecycle.service.js';
     GuestReservationsService,
     // Run by the worker's scheduler.
     HoldSweeper,
+    NightAudit,
   ],
 })
 export class ReservationsModule {}

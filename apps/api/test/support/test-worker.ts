@@ -36,6 +36,7 @@ export async function createTestWorker({
     WEB_URL: 'https://stayflow.test',
     OUTBOX_POLL_INTERVAL_MS: '0',
     HOLD_SWEEP_INTERVAL_MS: '0',
+    NIGHT_AUDIT_INTERVAL_MS: '0',
     ...env,
   });
 

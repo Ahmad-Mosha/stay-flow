@@ -3,6 +3,7 @@ import type { AppConfig } from './config/config.js';
 import { APP_CONFIG, AppConfigModule } from './config/config.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { HoldSweeper } from './modules/reservations/hold-sweeper.js';
+import { NightAudit } from './modules/reservations/night-audit.js';
 import { ReservationsModule } from './modules/reservations/reservations.module.js';
 import { DatabaseModule } from './platform/database/database.module.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
@@ -14,7 +15,12 @@ import { SCHEDULED_JOBS, type ScheduledJob, Scheduler } from './platform/schedul
 import { TimeModule } from './platform/time/time.module.js';
 
 /** Everything the worker does, and how often. */
-function schedule(config: AppConfig, outbox: OutboxWorker, holds: HoldSweeper): ScheduledJob[] {
+function schedule(
+  config: AppConfig,
+  outbox: OutboxWorker,
+  holds: HoldSweeper,
+  audit: NightAudit,
+): ScheduledJob[] {
   return [
     {
       name: 'outbox',
@@ -25,6 +31,11 @@ function schedule(config: AppConfig, outbox: OutboxWorker, holds: HoldSweeper): 
       name: 'hold sweep',
       intervalMs: config.jobs.holdSweepIntervalMs,
       run: (signal) => holds.sweep(signal),
+    },
+    {
+      name: 'night audit',
+      intervalMs: config.jobs.nightAuditIntervalMs,
+      run: (signal) => audit.run(signal),
     },
   ];
 }
@@ -55,7 +66,7 @@ export class WorkerModule {
         {
           provide: SCHEDULED_JOBS,
           useFactory: schedule,
-          inject: [APP_CONFIG, OutboxWorker, HoldSweeper],
+          inject: [APP_CONFIG, OutboxWorker, HoldSweeper, NightAudit],
         },
         Scheduler,
       ],

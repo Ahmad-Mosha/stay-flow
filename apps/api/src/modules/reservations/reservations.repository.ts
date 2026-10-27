@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { type Selectable, sql, type UpdateQueryBuilder, type Updateable } from 'kysely';
 import { Temporal } from 'temporal-polyfill';
 import { z } from 'zod';
-import type { Transaction } from '../../platform/database/database.js';
+import type { Database, Transaction } from '../../platform/database/database.js';
 import type { DB, Reservations } from '../../platform/database/database.generated.js';
 import { fromDateRange, toDateRange } from '../../platform/database/date-range.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
@@ -152,6 +152,37 @@ export class ReservationsRepository {
       changes,
     );
     return moved.length > 0;
+  }
+
+  /**
+   * Confirmed bookings whose guest never came: the night audit after their arrival day has passed
+   * on the property's clock. The audit runs `auditHour` hours after midnight. Oldest first.
+   */
+  async findMissedArrivals(
+    db: Database,
+    at: Temporal.Instant,
+    auditHour: number,
+    limit: number,
+  ): Promise<{ id: string; propertyId: string }[]> {
+    // No time zone is more than 14 hours ahead of UTC, so no property's date is later than this.
+    // It bounds the index scan to arrivals up to today, not every future booking.
+    const latestDate = at.toZonedDateTimeISO('UTC').add({ hours: 14 }).toPlainDate();
+    return db
+      .selectFrom('reservations as r')
+      .innerJoin('properties as p', 'p.id', 'r.propertyId')
+      .select(['r.id', 'r.propertyId'])
+      .where('r.status', '=', 'confirmed')
+      .where(sql<boolean>`lower(r.nights) < ${latestDate.toString()}::date`)
+      .where(
+        sql<boolean>`lower(r.nights) < (
+          (${new Date(at.epochMilliseconds)}::timestamptz AT TIME ZONE p.time_zone)
+          - make_interval(hours => ${auditHour})
+        )::date`,
+      )
+      .orderBy(sql`lower(r.nights)`)
+      .orderBy('r.id')
+      .limit(limit)
+      .execute();
   }
 
   /**
