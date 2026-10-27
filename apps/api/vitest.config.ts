@@ -1,4 +1,15 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
+
+// Starts one real PostgreSQL 18 container per project and migrates it.
+const database = {
+  globalSetup: ['test/global-setup.ts'],
+  testTimeout: 30_000,
+  hookTimeout: 60_000,
+};
+
+// The race tests time transactions to the millisecond. Another file's hold sweep or CPU load
+// would change who wins, so they get a database of their own and run after everything else.
+const raceTests = ['test/concurrency.test.ts'];
 
 export default defineConfig({
   // Tests run server-side; resolve workspace packages to their TypeScript source, like tsc does.
@@ -17,10 +28,17 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['test/**/*.test.ts'],
-          // Starts one real PostgreSQL 18 container for the whole run and migrates it.
-          globalSetup: ['test/global-setup.ts'],
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
+          exclude: [...configDefaults.exclude, ...raceTests],
+          ...database,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'concurrency',
+          include: raceTests,
+          sequence: { groupOrder: 1 },
+          ...database,
         },
       },
     ],

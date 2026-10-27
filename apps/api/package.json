@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration",
+    "test:integration": "vitest run --project integration --project concurrency",
     "db:migrate": "nest build && node --env-file-if-exists=.env dist/platform/database/migrate.js",
     "db:seed": "nest build && node --env-file-if-exists=.env dist/seed/seed.js",
     "db:codegen": "kysely-codegen",
