@@ -22,6 +22,24 @@ export interface HttpConfig {
   readonly trustedOrigins: readonly string[];
 }
 
+export interface MailConfig {
+  /** Such as `smtp://localhost:1025`, Mailpit in development. */
+  readonly smtpUrl: string;
+  /** The sender, such as `Stay Flow <bookings@stayflow.test>`. */
+  readonly from: string;
+  /** The website guests use, for the links in emails. */
+  readonly webUrl: string;
+}
+
+export interface OutboxConfig {
+  /** How long the worker waits when no event is due; 0 stops the loop, so tests drain it. */
+  readonly pollIntervalMs: number;
+  /** How many events the worker claims at a time. */
+  readonly batchSize: number;
+  /** How long a claimed event stays hidden from other workers. A worker that dies gives it back then. */
+  readonly leaseMs: number;
+}
+
 export interface AppConfig {
   readonly env: 'development' | 'test' | 'production';
   readonly port: number;
@@ -29,6 +47,8 @@ export interface AppConfig {
   readonly http: HttpConfig;
   readonly database: DatabaseConfig;
   readonly holds: HoldsConfig;
+  readonly mail: MailConfig;
+  readonly outbox: OutboxConfig;
 }
 
 export class InvalidConfigError extends Error {
@@ -61,6 +81,13 @@ const envSchema = z.object({
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
   HOLD_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
+  SMTP_URL: z.url({ protocol: /^smtps?$/ }).default('smtp://localhost:1025'),
+  MAIL_FROM: z.string().trim().min(3).default('Stay Flow <bookings@stayflow.test>'),
+  WEB_URL: originSchema.default('http://localhost:3001'),
+  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(0).default(1_000),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
+  // Longer than the mailer's timeouts, so a slow send is never taken over while it runs.
+  OUTBOX_LEASE_MS: z.coerce.number().int().min(100).default(60_000),
 });
 
 /** Parses the environment once at startup, so a bad deployment fails before serving traffic. */
@@ -89,6 +116,16 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     holds: {
       sweepIntervalMs: parsed.HOLD_SWEEP_INTERVAL_MS,
+    },
+    mail: {
+      smtpUrl: parsed.SMTP_URL,
+      from: parsed.MAIL_FROM,
+      webUrl: parsed.WEB_URL,
+    },
+    outbox: {
+      pollIntervalMs: parsed.OUTBOX_POLL_INTERVAL_MS,
+      batchSize: parsed.OUTBOX_BATCH_SIZE,
+      leaseMs: parsed.OUTBOX_LEASE_MS,
     },
   };
 }

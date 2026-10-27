@@ -21,6 +21,16 @@ describe('loadConfig', () => {
       holds: {
         sweepIntervalMs: 30_000,
       },
+      mail: {
+        smtpUrl: 'smtp://localhost:1025',
+        from: 'Stay Flow <bookings@stayflow.test>',
+        webUrl: 'http://localhost:3001',
+      },
+      outbox: {
+        pollIntervalMs: 1_000,
+        batchSize: 20,
+        leaseMs: 60_000,
+      },
     });
   });
 
@@ -44,6 +54,13 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({ ...validEnv, TRUSTED_ORIGINS: 'https://stayflow.example/app' }),
     ).toThrow(/TRUSTED_ORIGINS/);
+  });
+
+  it('takes only SMTP URLs for the mail server', () => {
+    expect(loadConfig({ ...validEnv, SMTP_URL: 'smtps://mail.example:465' }).mail.smtpUrl).toBe(
+      'smtps://mail.example:465',
+    );
+    expect(() => loadConfig({ ...validEnv, SMTP_URL: 'https://mail.example' })).toThrow(/SMTP_URL/);
   });
 
   it('rejects a missing DATABASE_URL and names the variable', () => {
