@@ -46,6 +46,14 @@ export class WorkerProcess {
     return this.output;
   }
 
+  /** Each JSON line of the output, as pino wrote it. */
+  get logRecords(): Record<string, unknown>[] {
+    return this.output
+      .split('\n')
+      .filter((line) => line.startsWith('{') && line.endsWith('}'))
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+  }
+
   /** Sends `signal` and waits for the process to end. */
   async stop(signal: NodeJS.Signals): Promise<void> {
     if (this.child.exitCode !== null || this.child.signalCode !== null) {

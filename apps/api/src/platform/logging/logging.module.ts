@@ -14,6 +14,10 @@ function loggerParams(config: AppConfig): Params {
         response.setHeader(REQUEST_ID_HEADER, id);
         return id;
       },
+      // Logs made while serving a request carry only its id. The request itself is logged once,
+      // when it completes.
+      quietReqLogger: true,
+      customAttributeKeys: { reqId: 'requestId' },
       customLogLevel: (_request, response, error) => {
         if (error !== undefined || response.statusCode >= 500) return 'error';
         if (response.statusCode >= 400) return 'warn';

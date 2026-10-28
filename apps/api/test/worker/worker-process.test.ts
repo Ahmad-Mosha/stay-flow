@@ -116,4 +116,35 @@ describe('the worker process', () => {
       { attempts: 0, processed: false },
     ]);
   });
+
+  it('logs each delivery under the id of the request that caused it', async () => {
+    const { id: reservationId } = await createReservation(db, {
+      ...(await createTeam(db)),
+      nights: '[2027-02-01,2027-02-03)',
+    });
+    const { id } = await db
+      .insertInto('outboxEvents')
+      .values({
+        type: 'reservation.confirmed',
+        payload: { reservationId },
+        requestId: 'booking-trace-0002',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    const worker = startWorker({});
+
+    await waitFor(
+      () =>
+        Promise.resolve(
+          worker.logRecords.some(
+            (record) =>
+              record.msg === 'Delivered outbox event' &&
+              record.eventId === id &&
+              record.requestId === 'booking-trace-0002',
+          ),
+        ),
+      { what: 'the delivery to be logged' },
+    );
+  });
 });

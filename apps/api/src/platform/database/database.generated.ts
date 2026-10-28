@@ -72,6 +72,7 @@ export interface OutboxEvents {
   lastError: string | null;
   payload: Json;
   processedAt: Timestamp | null;
+  requestId: string | null;
   type: string;
 }
 

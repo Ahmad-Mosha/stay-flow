@@ -55,19 +55,16 @@ export class OutboxWorker {
         await this.outbox.release(events.slice(index));
         break;
       }
-      if (await this.outbox.renewLease(event, this.config.leaseMs)) {
-        await this.deliver(event);
-      } else {
-        this.logger.warn(
-          { eventId: event.id, type: event.type },
-          'Lease on an outbox event ran out, and another worker has it now',
-        );
-      }
+      await this.logger.runInContext(() => this.deliver(event), { bindings: logBindings(event) });
     }
     return events.length;
   }
 
   private async deliver(event: OutboxEvent): Promise<void> {
+    if (!(await this.outbox.renewLease(event, this.config.leaseMs))) {
+      this.logger.warn('Lease on an outbox event ran out, and another worker has it now');
+      return;
+    }
     try {
       const handler = this.handlers.get(event.type);
       if (handler === undefined) {
@@ -79,11 +76,12 @@ export class OutboxWorker {
       return;
     }
     await this.outbox.complete(event);
+    this.logger.info({ attempt: event.attempt }, 'Delivered outbox event');
   }
 
   private async fail(event: OutboxEvent, error: unknown): Promise<void> {
     const reason = error instanceof Error ? error.message : String(error);
-    const context = { eventId: event.id, type: event.type, attempt: event.attempt, err: error };
+    const context = { attempt: event.attempt, err: error };
     if (error instanceof PermanentFailure || event.attempt >= MAX_ATTEMPTS) {
       await this.outbox.bury(event, reason);
       this.logger.error(context, 'Gave up on an outbox event');
@@ -93,4 +91,16 @@ export class OutboxWorker {
     await this.outbox.retryLater(event, reason, delayMs);
     this.logger.warn({ ...context, retryInMs: delayMs }, 'Outbox delivery failed, will retry');
   }
+}
+
+/**
+ * Fields for every log about the event. The request id is the one the API logged the change under,
+ * so a single search follows a booking from the request to its email.
+ */
+function logBindings(event: OutboxEvent) {
+  return {
+    eventId: event.id,
+    eventType: event.type,
+    ...(event.requestId === null ? {} : { requestId: event.requestId }),
+  };
 }

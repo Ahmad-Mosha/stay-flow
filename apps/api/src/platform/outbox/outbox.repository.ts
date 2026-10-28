@@ -25,10 +25,10 @@ function stillClaimed(eb: ExpressionBuilder<DB, 'outboxEvents'>, event: OutboxEv
 export class OutboxRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async insert(trx: Transaction, event: NewOutboxEvent): Promise<void> {
+  async insert(trx: Transaction, event: NewOutboxEvent, requestId: string | null): Promise<void> {
     await trx
       .insertInto('outboxEvents')
-      .values({ type: event.type, payload: event.payload })
+      .values({ type: event.type, payload: event.payload, requestId })
       .execute();
   }
 
@@ -60,12 +60,12 @@ export class OutboxRepository {
         attempts: eb('attempts', '+', 1),
       }))
       .whereRef('outboxEvents.id', '=', 'due.id')
-      .returning(['outboxEvents.id', 'type', 'payload', 'attempts'])
+      .returning(['outboxEvents.id', 'type', 'payload', 'attempts', 'requestId'])
       .execute();
     // RETURNING keeps no order. The ids are UUIDv7, so sorting them sorts by creation.
     return rows
       .sort((a, b) => a.id.localeCompare(b.id))
-      .map((row) => ({ id: row.id, type: row.type, payload: row.payload, attempt: row.attempts }));
+      .map(({ attempts, ...row }) => ({ ...row, attempt: attempts }));
   }
 
   /**

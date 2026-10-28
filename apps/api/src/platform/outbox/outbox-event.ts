@@ -17,6 +17,8 @@ export interface OutboxEvent {
    * returned this event is still the latest one.
    */
   readonly attempt: number;
+  /** The request that caused the event, if one did. */
+  readonly requestId: string | null;
 }
 
 /**

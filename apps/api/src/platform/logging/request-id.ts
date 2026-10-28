@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { runWithRequestId } from './request-context.js';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 
@@ -16,7 +17,10 @@ export function requestIdOf(request: Request): string {
   return typeof request.id === 'string' ? request.id : 'unassigned';
 }
 
-/** Runs before the body parser, so even a malformed body gets an id. */
+/**
+ * Runs before the body parser, so even a malformed body gets an id. The rest of the request runs
+ * in its context, so code that has no request object can still read the id.
+ */
 export function requestIdMiddleware(
   request: Request,
   response: Response,
@@ -25,5 +29,5 @@ export function requestIdMiddleware(
   const id = resolveRequestId(request.headers[REQUEST_ID_HEADER]);
   request.id = id;
   response.setHeader(REQUEST_ID_HEADER, id);
-  next();
+  runWithRequestId(id, next);
 }

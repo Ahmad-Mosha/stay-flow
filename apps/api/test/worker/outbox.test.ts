@@ -89,6 +89,17 @@ describe('the outbox and the emails it sends', () => {
       ]);
     });
 
+    it('keeps the id of the request that wrote it, to find the logs of its delivery', async () => {
+      const { slug } = await createTeam(db);
+      const id = reservationIdOf(await placeHold(api.getHttpServer(), slug).expect(201));
+
+      await confirmReservation(api.getHttpServer(), id)
+        .set('X-Request-Id', 'booking-trace-0001')
+        .expect(200);
+
+      expect(await onlyEventOf(id)).toMatchObject({ requestId: 'booking-trace-0001' });
+    });
+
     it('writes nothing when the confirmation fails', async () => {
       const { slug } = await createTeam(db);
       const id = reservationIdOf(await placeHold(api.getHttpServer(), slug).expect(201));
