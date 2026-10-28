@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ReservationResponse } from '@stay-flow/contracts';
 import { DATABASE, type Database, type Transaction } from '../../platform/database/database.js';
 import { AppError } from '../../platform/errors/app-error.js';
+import { Metrics } from '../../platform/metrics/metrics.js';
 import {
   IdempotencyService,
   type IdempotentResult,
@@ -31,6 +32,7 @@ export class ReservationsService {
     private readonly properties: PropertiesService,
     private readonly inventory: InventoryService,
     private readonly reservations: ReservationsRepository,
+    private readonly metrics: Metrics,
   ) {}
 
   /** Holds the best-fitting free room of a type while the guest confirms. */
@@ -40,7 +42,8 @@ export class ReservationsService {
     idempotencyKey: string,
   ): Promise<IdempotentResult<ReservationResponse>> {
     const request = { scope: 'place-hold', key: idempotencyKey, payload: { slug, ...hold } };
-    return this.idempotency.run(request, async (trx) => {
+    let expired = 0;
+    const result = await this.idempotency.run(request, async (trx) => {
       const property = await this.properties.getBySlug(slug, trx);
       this.properties.assertStayAllowed(property, hold.stay);
       const unitType = await this.inventory.getUnitType(trx, property.id, hold.unitType);
@@ -53,7 +56,7 @@ export class ReservationsService {
       const price = await this.inventory.quote(trx, property.id, unitType, hold.stay);
 
       // An expired hold keeps its room until it is released, so release the ones in the way.
-      await this.clearDueHolds(trx, unitType.id, hold.stay);
+      expired = await this.clearDueHolds(trx, unitType.id, hold.stay);
       const reservation = await this.reservations.insertHold(trx, {
         propertyId: property.id,
         unitTypeId: unitType.id,
@@ -75,6 +78,8 @@ export class ReservationsService {
       });
       return toReservationResponse(reservation, unitType);
     });
+    this.metrics.holdsExpired.inc(expired);
+    return result;
   }
 
   /** Turns a live hold into a booking for the guest. */
@@ -119,15 +124,18 @@ export class ReservationsService {
   /** Expires up to `limit` due holds, oldest first, and frees their rooms. Returns how many. */
   async expireDueHolds(limit: number): Promise<number> {
     const expired = await this.db.transaction().execute(async (trx) => this.expire(trx, { limit }));
+    this.metrics.holdsExpired.inc(expired.length);
     return expired.length;
   }
 
   /**
    * Expires the due holds of a room type that overlap `nights`, so their rooms are free to take.
-   * Runs in the caller's transaction.
+   * Runs in the caller's transaction, and returns how many it expired for the caller to count in
+   * Metrics.holdsExpired once that commits.
    */
-  async clearDueHolds(trx: Transaction, unitTypeId: string, nights: DateSpan): Promise<void> {
-    await this.expire(trx, { unitTypeId, overlapping: nights });
+  async clearDueHolds(trx: Transaction, unitTypeId: string, nights: DateSpan): Promise<number> {
+    const expired = await this.expire(trx, { unitTypeId, overlapping: nights });
+    return expired.length;
   }
 
   private async expire(trx: Transaction, holds: DueHolds): Promise<string[]> {

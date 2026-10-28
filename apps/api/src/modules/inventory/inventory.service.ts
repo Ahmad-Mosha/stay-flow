@@ -4,6 +4,7 @@ import type { Transaction } from '../../platform/database/database.js';
 import { isPgError, PgErrorCode } from '../../platform/database/pg-errors.js';
 import { inSavepoint } from '../../platform/database/savepoint.js';
 import { AppError } from '../../platform/errors/app-error.js';
+import { Metrics } from '../../platform/metrics/metrics.js';
 import type { DateSpan } from '../../platform/time/date-span.js';
 import { bestFitOrder } from './allocation.js';
 import {
@@ -27,7 +28,10 @@ export interface UnitRequest {
 /** The inventory module's public API for booking. Every method runs in the caller's transaction. */
 @Injectable()
 export class InventoryService {
-  constructor(private readonly inventory: InventoryRepository) {}
+  constructor(
+    private readonly inventory: InventoryRepository,
+    private readonly metrics: Metrics,
+  ) {}
 
   async getUnitType(trx: Transaction, propertyId: string, slug: string): Promise<UnitType> {
     const unitType = await this.inventory.findUnitType(trx, propertyId, slug);
@@ -78,8 +82,10 @@ export class InventoryService {
         if (!isPgError(error, PgErrorCode.ExclusionViolation, 'occupancies_no_overlap')) {
           throw error;
         }
+        this.metrics.bookingConflicts.inc();
       }
     }
+    this.metrics.holdsSoldOut.inc();
     throw new AppError('SOLD_OUT', 'Every room of this type is taken for these dates.');
   }
 

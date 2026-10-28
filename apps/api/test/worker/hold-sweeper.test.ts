@@ -3,6 +3,7 @@ import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HoldSweeper } from '../../src/modules/reservations/hold-sweeper.js';
 import type { Database } from '../../src/platform/database/database.js';
+import { Metrics } from '../../src/platform/metrics/metrics.js';
 import {
   eventsOf,
   lapseHold,
@@ -53,7 +54,10 @@ describe('hold sweeper', () => {
       const { lapsed, live } = await placeTwoHolds();
 
       // Other test files share the database, so their lapsed holds may be swept too.
-      expect(await worker.app.get(HoldSweeper).sweep()).toBeGreaterThanOrEqual(1);
+      const swept = await worker.app.get(HoldSweeper).sweep();
+      expect(swept).toBeGreaterThanOrEqual(1);
+      const { values } = await worker.app.get(Metrics).holdsExpired.get();
+      expect(values[0]?.value).toBe(swept);
 
       expect(await statusOf(db, lapsed)).toBe('expired');
       expect(await roomOf(db, lapsed)).toBeUndefined();

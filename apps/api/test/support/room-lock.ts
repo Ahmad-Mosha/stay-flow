@@ -3,7 +3,7 @@ import type { Database } from '../../src/platform/database/database.js';
 import { deferred } from './deferred.js';
 
 export interface RoomLock {
-  /** How many queries are waiting for the lock. */
+  /** How many queries are waiting for the lock, directly or behind another waiter. */
   waiters(): Promise<number>;
   release(): Promise<void>;
 }
@@ -32,14 +32,18 @@ export async function lockRooms(db: Database, propertyId: string): Promise<RoomL
 
   return {
     async waiters() {
-      const { count } = await db
-        .selectNoFrom(
-          sql<number>`(
-            SELECT count(*)::int FROM pg_stat_activity WHERE ${holder} = ANY (pg_blocking_pids(pid))
-          )`.as('count'),
+      // A row lock queues its waiters behind the first one, so count the whole chain.
+      const { rows } = await sql<{ count: number }>`
+        WITH RECURSIVE waiting (pid) AS (
+          SELECT pid FROM pg_stat_activity WHERE ${holder} = ANY (pg_blocking_pids(pid))
+          UNION
+          SELECT activity.pid
+          FROM pg_stat_activity AS activity
+          JOIN waiting ON waiting.pid = ANY (pg_blocking_pids(activity.pid))
         )
-        .executeTakeFirstOrThrow();
-      return count;
+        SELECT count(*)::int AS count FROM waiting
+      `.execute(db);
+      return rows[0]?.count ?? 0;
     },
     async release() {
       released.resolve(undefined);
