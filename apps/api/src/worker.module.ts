@@ -11,6 +11,7 @@ import { IdempotencyModule } from './platform/idempotency/idempotency.module.js'
 import { LoggingModule } from './platform/logging/logging.module.js';
 import { MetricsModule } from './platform/metrics/metrics.module.js';
 import { OutboxModule } from './platform/outbox/outbox.module.js';
+import { OutboxBacklog } from './platform/outbox/outbox-backlog.js';
 import { OutboxWorker } from './platform/outbox/outbox-worker.js';
 import { RateLimitModule } from './platform/rate-limit/rate-limit.module.js';
 import { SCHEDULED_JOBS, type ScheduledJob, Scheduler } from './platform/scheduling/scheduler.js';
@@ -72,6 +73,7 @@ export class WorkerModule {
       ],
       providers: [
         OutboxWorker,
+        OutboxBacklog,
         Housekeeping,
         {
           provide: SCHEDULED_JOBS,

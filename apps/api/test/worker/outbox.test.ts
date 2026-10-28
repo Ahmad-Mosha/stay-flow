@@ -5,6 +5,8 @@ import request from 'supertest';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/platform/database/database.js';
+import { Metrics } from '../../src/platform/metrics/metrics.js';
+import { MetricsServer } from '../../src/platform/metrics/metrics-server.js';
 import { MAX_ATTEMPTS } from '../../src/platform/outbox/retry-policy.js';
 import { createTeam } from '../support/access.js';
 import { confirmReservation, lapseHold, placeHold, reservationIdOf } from '../support/booking.js';
@@ -330,4 +332,90 @@ describe('the outbox and the emails it sends', () => {
       .execute();
     expect(states.every((state) => state.attempts === 2 && state.processedAt !== null)).toBe(true);
   });
+
+  describe('metrics', () => {
+    /** How many deliveries of confirmations the worker counted with this outcome. */
+    async function deliveries(outcome: string): Promise<number> {
+      const { values } = await worker.app.get(Metrics).outboxDeliveries.get();
+      const counted = values.find(
+        ({ labels }) => labels.type === 'reservation.confirmed' && labels.outcome === outcome,
+      );
+      return counted?.value ?? 0;
+    }
+
+    it('counts deliveries by outcome', async () => {
+      const before = {
+        delivered: await deliveries('delivered'),
+        retried: await deliveries('retried'),
+        dead: await deliveries('dead'),
+      };
+      const later = uniqueEmail();
+      sink.refuse(later, 451);
+      const retried = await book(later);
+      const nowhere = uniqueEmail();
+      sink.refuse(nowhere, 550);
+      await book(nowhere);
+      await worker.outbox.drain();
+
+      sink.accept(later);
+      await makeDue((await onlyEventOf(retried)).id);
+      await worker.outbox.drain();
+
+      expect({
+        delivered: await deliveries('delivered'),
+        retried: await deliveries('retried'),
+        dead: await deliveries('dead'),
+      }).toEqual({
+        delivered: before.delivered + 1,
+        retried: before.retried + 1,
+        dead: before.dead + 1,
+      });
+    });
+
+    it('reports the backlog and how long its oldest event has waited', async () => {
+      const metricsWorker = await createTestWorker({ env: { WORKER_METRICS_PORT: '0' }, now });
+      const event = { type: 'metrics.test', payload: {} };
+      const backlog = await db
+        .insertInto('outboxEvents')
+        .values([
+          { ...event, createdAt: sql<Date>`now() - interval '10 minutes'` },
+          { ...event, deadAt: sql<Date>`now()` },
+        ])
+        .returning('id')
+        .execute();
+
+      try {
+        const port = metricsWorker.app.get(MetricsServer).address?.port;
+        const scrape = await fetch(`http://127.0.0.1:${String(port)}/metrics`);
+        const samples = samplesOf(await scrape.text());
+
+        expect(samples.get('stayflow_outbox_lag_seconds')).toBeGreaterThanOrEqual(600);
+        expect(samples.get('stayflow_outbox_events{state="pending"}')).toBeGreaterThanOrEqual(1);
+        expect(samples.get('stayflow_outbox_events{state="dead"}')).toBeGreaterThanOrEqual(1);
+      } finally {
+        await metricsWorker.app.close();
+        await db
+          .deleteFrom('outboxEvents')
+          .where(
+            'id',
+            'in',
+            backlog.map(({ id }) => id),
+          )
+          .execute();
+      }
+    });
+  });
 });
+
+/** The samples of a Prometheus scrape, by series, such as `stayflow_outbox_events{state="dead"}`. */
+function samplesOf(scrape: string): Map<string, number> {
+  return new Map(
+    scrape
+      .split('\n')
+      .filter((line) => line !== '' && !line.startsWith('#'))
+      .map((line) => {
+        const space = line.lastIndexOf(' ');
+        return [line.slice(0, space), Number(line.slice(space + 1))];
+      }),
+  );
+}

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Counter, collectDefaultMetrics, Histogram, Registry } from 'prom-client';
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from 'prom-client';
 
 /**
  * Every metric the API and the worker export, in one place. Each application has a registry of
@@ -32,6 +32,28 @@ export class Metrics {
   readonly holdsExpired = new Counter({
     name: 'stayflow_holds_expired_total',
     help: 'Holds that ran out before the guest confirmed.',
+    registers: [this.registry],
+  });
+
+  readonly outboxDeliveries = new Counter({
+    name: 'stayflow_outbox_deliveries_total',
+    help: 'Outbox delivery attempts, by event type and outcome: delivered, retried, or dead.',
+    labelNames: ['type', 'outcome'] as const,
+    registers: [this.registry],
+  });
+
+  readonly jobDuration = new Histogram({
+    name: 'stayflow_job_duration_seconds',
+    help: 'Time each run of a worker job took, by job and outcome.',
+    labelNames: ['job', 'outcome'] as const,
+    buckets: [0.01, 0.05, 0.25, 1, 5, 15, 60, 300],
+    registers: [this.registry],
+  });
+
+  readonly jobLastSuccess = new Gauge({
+    name: 'stayflow_job_last_success_timestamp_seconds',
+    help: 'When each worker job last finished a run without failing. One that falls behind its interval is failing or stuck.',
+    labelNames: ['job'] as const,
     registers: [this.registry],
   });
 

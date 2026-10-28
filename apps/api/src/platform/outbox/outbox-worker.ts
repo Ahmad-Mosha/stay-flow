@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import type { AppConfig, OutboxConfig } from '../../config/config.js';
 import { APP_CONFIG } from '../../config/config.module.js';
+import { Metrics } from '../metrics/metrics.js';
 import {
   OUTBOX_HANDLERS,
   type OutboxEvent,
@@ -25,6 +26,7 @@ export class OutboxWorker {
     @Inject(APP_CONFIG) config: AppConfig,
     private readonly outbox: OutboxRepository,
     @Inject(OUTBOX_HANDLERS) handlers: readonly OutboxHandler[],
+    private readonly metrics: Metrics,
     // Not @InjectPinoLogger(): it only works for classes imported before the LoggerModule is.
     private readonly logger: PinoLogger,
   ) {
@@ -76,6 +78,7 @@ export class OutboxWorker {
       return;
     }
     await this.outbox.complete(event);
+    this.metrics.outboxDeliveries.inc({ type: event.type, outcome: 'delivered' });
     this.logger.info({ attempt: event.attempt }, 'Delivered outbox event');
   }
 
@@ -84,11 +87,13 @@ export class OutboxWorker {
     const context = { attempt: event.attempt, err: error };
     if (error instanceof PermanentFailure || event.attempt >= MAX_ATTEMPTS) {
       await this.outbox.bury(event, reason);
+      this.metrics.outboxDeliveries.inc({ type: event.type, outcome: 'dead' });
       this.logger.error(context, 'Gave up on an outbox event');
       return;
     }
     const delayMs = retryDelayMs(event.attempt);
     await this.outbox.retryLater(event, reason, delayMs);
+    this.metrics.outboxDeliveries.inc({ type: event.type, outcome: 'retried' });
     this.logger.warn({ ...context, retryInMs: delayMs }, 'Outbox delivery failed, will retry');
   }
 }

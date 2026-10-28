@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Metrics } from '../metrics/metrics.js';
 import { type ScheduledJob, Scheduler } from './scheduler.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -7,6 +8,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe('Scheduler', () => {
   const logger = { setContext: vi.fn(), error: vi.fn() };
   let scheduler: Scheduler | undefined;
+  let metrics: Metrics;
 
   afterEach(async () => {
     await scheduler?.beforeApplicationShutdown();
@@ -15,7 +17,8 @@ describe('Scheduler', () => {
   });
 
   function start(...jobs: ScheduledJob[]): Scheduler {
-    scheduler = new Scheduler(jobs, logger as unknown as PinoLogger);
+    metrics = new Metrics();
+    scheduler = new Scheduler(jobs, metrics, logger as unknown as PinoLogger);
     scheduler.onApplicationBootstrap();
     return scheduler;
   }
@@ -80,6 +83,34 @@ describe('Scheduler', () => {
       expect.objectContaining({ job: 'flaky' }),
       'Scheduled job failed',
     );
+  });
+
+  it('times every run, and records when the job last succeeded', async () => {
+    let runs = 0;
+    start({
+      name: 'flaky',
+      intervalMs: 1,
+      run: () => {
+        runs++;
+        return runs === 2 ? Promise.reject(new Error('Database is down')) : Promise.resolve();
+      },
+    });
+    await expect.poll(() => runs).toBeGreaterThanOrEqual(3);
+    await scheduler?.beforeApplicationShutdown();
+    scheduler = undefined;
+
+    const { values } = await metrics.jobDuration.get();
+    const count = (outcome: string) =>
+      values.find(
+        (value) =>
+          value.metricName === 'stayflow_job_duration_seconds_count' &&
+          value.labels.outcome === outcome,
+      )?.value;
+    expect(count('failed')).toBe(1);
+    expect(count('succeeded')).toBe(runs - 1);
+    const lastSuccess = (await metrics.jobLastSuccess.get()).values[0];
+    expect(lastSuccess?.labels).toEqual({ job: 'flaky' });
+    expect(Date.now() / 1000 - (lastSuccess?.value ?? 0)).toBeLessThan(5);
   });
 
   it('on shutdown, aborts the run in progress, waits for it, and starts no other', async () => {

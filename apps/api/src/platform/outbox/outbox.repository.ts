@@ -21,6 +21,16 @@ function stillClaimed(eb: ExpressionBuilder<DB, 'outboxEvents'>, event: OutboxEv
   ]);
 }
 
+/** What the outbox still has to deliver. */
+export interface OutboxBacklogState {
+  /** Events waiting for a delivery, including those waiting to retry. */
+  readonly pending: number;
+  /** Events the worker gave up on. */
+  readonly dead: number;
+  /** How long the oldest pending event has waited, or 0. */
+  readonly lagSeconds: number;
+}
+
 @Injectable()
 export class OutboxRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
@@ -108,6 +118,21 @@ export class OutboxRepository {
       .set({ deadAt: sql<Date>`now()`, lastError: error.slice(0, MAX_ERROR_LENGTH) })
       .where((eb) => stillClaimed(eb, event))
       .execute();
+  }
+
+  /** What is left to deliver. The lag comes from the database clock, which stamped the events. */
+  async backlog(): Promise<OutboxBacklogState> {
+    return this.db
+      .selectFrom('outboxEvents')
+      .select([
+        sql<number>`count(*) FILTER (WHERE dead_at IS NULL)::int`.as('pending'),
+        sql<number>`count(*) FILTER (WHERE dead_at IS NOT NULL)::int`.as('dead'),
+        sql<number>`coalesce(
+          extract(epoch FROM now() - min(created_at) FILTER (WHERE dead_at IS NULL)), 0
+        )::float8`.as('lagSeconds'),
+      ])
+      .where('processedAt', 'is', null)
+      .executeTakeFirstOrThrow();
   }
 
   /** Hands back claimed events that were never tried, so another worker can take them now. */

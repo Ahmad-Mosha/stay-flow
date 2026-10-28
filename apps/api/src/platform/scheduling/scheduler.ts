@@ -5,6 +5,7 @@ import {
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { Metrics } from '../metrics/metrics.js';
 
 /** Work the worker repeats, such as delivering the outbox or expiring holds. */
 export interface ScheduledJob {
@@ -31,6 +32,7 @@ export class Scheduler implements OnApplicationBootstrap, BeforeApplicationShutd
 
   constructor(
     @Inject(SCHEDULED_JOBS) private readonly jobs: readonly ScheduledJob[],
+    private readonly metrics: Metrics,
     // Not @InjectPinoLogger(): it only works for classes imported before the LoggerModule is.
     private readonly logger: PinoLogger,
   ) {
@@ -70,10 +72,15 @@ export class Scheduler implements OnApplicationBootstrap, BeforeApplicationShutd
   }
 
   private async runOnce(job: ScheduledJob): Promise<void> {
+    const endTimer = this.metrics.jobDuration.startTimer({ job: job.name });
     try {
       await job.run(this.shutdown.signal);
     } catch (error) {
+      endTimer({ outcome: 'failed' });
       this.logger.error({ err: error, job: job.name }, 'Scheduled job failed');
+      return;
     }
+    endTimer({ outcome: 'succeeded' });
+    this.metrics.jobLastSuccess.set({ job: job.name }, Date.now() / 1000);
   }
 }
