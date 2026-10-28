@@ -1,10 +1,13 @@
 import eslint from '@eslint/js';
+import nextPlugin from '@next/eslint-plugin-next';
 import { defineConfig, globalIgnores } from 'eslint/config';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['**/dist/', '**/coverage/', '**/*.generated.ts']),
+  globalIgnores(['**/dist/', '**/coverage/', '**/*.generated.ts', '**/.next/', '**/next-env.d.ts']),
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -23,7 +26,21 @@ export default defineConfig(
     },
   },
   {
-    files: ['**/*.js'],
+    files: ['apps/web/**/*.{ts,tsx}'],
+    extends: [
+      jsxA11y.flatConfigs.strict,
+      reactHooks.configs.flat['recommended-latest'],
+      nextPlugin.configs['core-web-vitals'],
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+    settings: {
+      next: { rootDir: 'apps/web' },
+    },
+  },
+  {
+    files: ['**/*.js', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );

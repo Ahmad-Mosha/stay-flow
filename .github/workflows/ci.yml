@@ -17,6 +17,8 @@ jobs:
     name: Lint, type check, test, build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
