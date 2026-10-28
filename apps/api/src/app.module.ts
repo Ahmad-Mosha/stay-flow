@@ -14,6 +14,7 @@ import { HealthModule } from './platform/health/health.module.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
 import { LoggingModule } from './platform/logging/logging.module.js';
 import { MetricsModule } from './platform/metrics/metrics.module.js';
+import { OpenApiModule } from './platform/openapi/openapi.module.js';
 import { OutboxModule } from './platform/outbox/outbox.module.js';
 import { RateLimitModule } from './platform/rate-limit/rate-limit.module.js';
 import { SecurityModule } from './platform/security/security.module.js';
@@ -36,6 +37,7 @@ export class AppModule {
         RateLimitModule,
         SecurityModule,
         HealthModule,
+        OpenApiModule,
         IdentityModule,
         AccessModule,
         GuestAccessModule,

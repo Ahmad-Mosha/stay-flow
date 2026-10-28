@@ -3,6 +3,8 @@ import { configDefaults, defineConfig } from 'vitest/config';
 // Starts one real PostgreSQL 18 container per project and migrates it.
 const database = {
   globalSetup: ['test/global-setup.ts'],
+  // Fails a test whose responses broke the published OpenAPI document.
+  setupFiles: ['test/support/contract-setup.ts'],
   testTimeout: 30_000,
   hookTimeout: 60_000,
 };

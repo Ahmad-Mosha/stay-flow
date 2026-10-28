@@ -1,8 +1,23 @@
 import { HttpException } from '@nestjs/common';
+import { z } from 'zod';
 import { AppError, type FieldError } from './app-error.js';
 import { codeForStatus, type ErrorCode, errorCatalog } from './error-catalog.js';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
+
+/** ProblemDetails as the OpenAPI document publishes it. Tests hold every error response to it. */
+export const problemDetailsSchema = z.object({
+  type: z.string(),
+  title: z.string(),
+  status: z.int().min(400).max(599),
+  detail: z.string().optional(),
+  instance: z.string(),
+  /** Stable: clients switch on it, never on the title or detail. */
+  code: z.enum(Object.keys(errorCatalog) as [ErrorCode, ...ErrorCode[]]),
+  requestId: z.string(),
+  /** Which fields failed validation, and why. */
+  errors: z.array(z.object({ detail: z.string(), pointer: z.string() })).optional(),
+});
 
 /** An RFC 9457 problem document, plus our stable `code` and the request id. */
 export interface ProblemDetails {

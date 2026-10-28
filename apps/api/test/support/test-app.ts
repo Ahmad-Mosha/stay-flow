@@ -6,6 +6,7 @@ import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { loadConfig } from '../../src/config/config.js';
 import { Clock, FixedClock } from '../../src/platform/time/clock.js';
+import { contractCheck } from './contract-check.js';
 
 interface TestAppOptions {
   /** Overrides single environment variables. */
@@ -35,6 +36,8 @@ export async function createTestApp({
   const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true });
+  // Every response a test gets is also held to the OpenAPI document; see contract-setup.ts.
+  app.use(contractCheck);
   configureApp(app);
   await app.init();
   return app;
