@@ -4,12 +4,15 @@ import type { AppConfig } from './config/config.js';
 import { APP_CONFIG } from './config/config.module.js';
 import { GracefulShutdown } from './platform/health/graceful-shutdown.js';
 import { requestIdMiddleware } from './platform/logging/request-id.js';
+import { httpMetricsMiddleware } from './platform/metrics/http-metrics.js';
+import { Metrics } from './platform/metrics/metrics.js';
 
 export const API_PREFIX = 'v1';
 
 /** HTTP setup shared by main.ts and the integration tests. Call it before app.init(). */
 export function configureApp(app: NestExpressApplication): void {
   app.use(app.get(GracefulShutdown).track);
+  app.use(httpMetricsMiddleware(app.get(Metrics)));
   app.use(requestIdMiddleware);
   app.useLogger(app.get(Logger));
   app.disable('x-powered-by');

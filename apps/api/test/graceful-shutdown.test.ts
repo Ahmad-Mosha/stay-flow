@@ -2,12 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { Agent, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { sql } from 'kysely';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/platform/database/database.js';
 import { decemberHold } from './support/booking.js';
-import { deferred } from './support/deferred.js';
 import { connectTestDatabase, createInventory } from './support/fixtures.js';
+import { lockRooms } from './support/room-lock.js';
 import { createTestApp } from './support/test-app.js';
 
 interface Reply {
@@ -78,51 +77,10 @@ describe('graceful shutdown', () => {
     await db.destroy();
   });
 
-  /**
-   * Locks a property's rooms in a transaction of the test's own, so that a booking there waits
-   * until `release`.
-   */
-  async function lockRooms(propertyId: string) {
-    const locked = deferred<number>();
-    const released = deferred<undefined>();
-    const transaction = db.transaction().execute(async (trx) => {
-      await trx
-        .selectFrom('units')
-        .select('id')
-        .where('propertyId', '=', propertyId)
-        .forUpdate()
-        .execute();
-      const { pid } = await trx
-        .selectNoFrom(sql<number>`pg_backend_pid()`.as('pid'))
-        .executeTakeFirstOrThrow();
-      locked.resolve(pid);
-      await released.promise;
-    });
-    const holder = await locked.promise;
-
-    return {
-      /** Whether a query is waiting for the lock. */
-      async waitedOn(): Promise<boolean> {
-        const { waiting } = await db
-          .selectNoFrom(
-            sql<boolean>`exists (
-              SELECT FROM pg_stat_activity WHERE ${holder} = ANY (pg_blocking_pids(pid))
-            )`.as('waiting'),
-          )
-          .executeTakeFirstOrThrow();
-        return waiting;
-      },
-      async release(): Promise<void> {
-        released.resolve(undefined);
-        await transaction;
-      },
-    };
-  }
-
   /** Starts a booking that waits for the property's rooms until the test releases them. */
   async function startStuckBooking(api: ListeningApi, agent?: Agent) {
     const { propertyId, slug } = await createInventory(db);
-    const rooms = await lockRooms(propertyId);
+    const rooms = await lockRooms(db, propertyId);
     const booking = api.send('POST', `/v1/properties/${slug}/holds`, {
       body: decemberHold,
       headers: { 'Idempotency-Key': randomUUID() },
@@ -130,7 +88,7 @@ describe('graceful shutdown', () => {
     });
     // Handled before the test moves on, as a rejection may come before anyone awaits it.
     booking.catch(() => undefined);
-    await expect.poll(() => rooms.waitedOn(), { timeout: 5_000 }).toBe(true);
+    await expect.poll(() => rooms.waiters(), { timeout: 5_000 }).toBe(1);
     return { booking, rooms };
   }
 

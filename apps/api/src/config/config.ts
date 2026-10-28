@@ -43,6 +43,13 @@ export interface MailConfig {
   readonly webUrl: string;
 }
 
+export interface MetricsConfig {
+  /** Where the API serves /metrics. Unset serves none. */
+  readonly apiPort: number | undefined;
+  /** Where the worker serves /metrics. A port of its own, as both may run on one host. */
+  readonly workerPort: number | undefined;
+}
+
 export interface OutboxConfig {
   /** How long the worker waits when no event is due; 0 stops the loop, so tests drain it. */
   readonly pollIntervalMs: number;
@@ -60,6 +67,7 @@ export interface AppConfig {
   readonly database: DatabaseConfig;
   readonly jobs: JobsConfig;
   readonly mail: MailConfig;
+  readonly metrics: MetricsConfig;
   readonly outbox: OutboxConfig;
 }
 
@@ -70,6 +78,12 @@ export class InvalidConfigError extends Error {
 const originSchema = z
   .url()
   .refine((url) => new URL(url).origin === url, 'must be origins like https://app.example.com');
+
+// Unset or empty serves nothing. 0 picks any free port, which tests use.
+const optionalPort = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.coerce.number().int().min(0).max(65_535).optional(),
+);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -101,6 +115,8 @@ const envSchema = z.object({
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).default('smtp://localhost:1025'),
   MAIL_FROM: z.string().trim().min(3).default('Stay Flow <bookings@stayflow.test>'),
   WEB_URL: originSchema.default('http://localhost:3001'),
+  METRICS_PORT: optionalPort,
+  WORKER_METRICS_PORT: optionalPort,
   OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(0).default(1_000),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
   // Longer than the mailer's timeouts, so a slow send is never taken over while it runs.
@@ -142,6 +158,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       smtpUrl: parsed.SMTP_URL,
       from: parsed.MAIL_FROM,
       webUrl: parsed.WEB_URL,
+    },
+    metrics: {
+      apiPort: parsed.METRICS_PORT,
+      workerPort: parsed.WORKER_METRICS_PORT,
     },
     outbox: {
       pollIntervalMs: parsed.OUTBOX_POLL_INTERVAL_MS,

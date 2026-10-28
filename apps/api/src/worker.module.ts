@@ -9,6 +9,7 @@ import { DatabaseModule } from './platform/database/database.module.js';
 import { Housekeeping } from './platform/housekeeping/housekeeping.js';
 import { IdempotencyModule } from './platform/idempotency/idempotency.module.js';
 import { LoggingModule } from './platform/logging/logging.module.js';
+import { MetricsModule } from './platform/metrics/metrics.module.js';
 import { OutboxModule } from './platform/outbox/outbox.module.js';
 import { OutboxWorker } from './platform/outbox/outbox-worker.js';
 import { RateLimitModule } from './platform/rate-limit/rate-limit.module.js';
@@ -59,6 +60,7 @@ export class WorkerModule {
       imports: [
         AppConfigModule.forRoot(config),
         LoggingModule,
+        MetricsModule.forRoot(config.metrics.workerPort),
         DatabaseModule,
         TimeModule,
         // The domain modules the jobs use need these, as in the API.

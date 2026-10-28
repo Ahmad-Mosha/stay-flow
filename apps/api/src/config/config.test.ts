@@ -30,6 +30,10 @@ describe('loadConfig', () => {
         from: 'Stay Flow <bookings@stayflow.test>',
         webUrl: 'http://localhost:3001',
       },
+      metrics: {
+        apiPort: undefined,
+        workerPort: undefined,
+      },
       outbox: {
         pollIntervalMs: 1_000,
         batchSize: 20,
