@@ -28,8 +28,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
-      - run: pnpm lint
+      # Type checking first: it generates the Next.js route types that typed linting reads.
       - run: pnpm typecheck
+      - run: pnpm lint
       # Integration tests start their own PostgreSQL 18 container through Testcontainers.
       - run: pnpm test
       - run: pnpm build

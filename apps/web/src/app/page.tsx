@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import { ButtonLink, TextLink } from '@/ui/link';
 import { StatusTape, type TapeStatus } from '@/ui/status-tape';
 import { Wordmark } from '@/ui/wordmark';
@@ -7,8 +8,8 @@ export default function HomePage() {
     <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-8 lg:px-12">
       <header className="flex items-center justify-between gap-6 border-b border-rule py-5">
         <Wordmark className="text-heading" />
-        <TextLink href="/design-system" className="text-small">
-          Design system
+        <TextLink href={routes.property('dar-nubia')} className="text-small">
+          Guest booking
         </TextLink>
       </header>
 
@@ -25,10 +26,11 @@ export default function HomePage() {
             arrivals, stays and blocks from one tape chart. The database itself refuses a double
             booking.
           </p>
-          <div className="pt-2">
-            <ButtonLink href="/design-system" size="lg">
-              See the design system
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
+            <ButtonLink href={routes.property('dar-nubia')} size="lg">
+              Book a demo stay
             </ButtonLink>
+            <TextLink href="/design-system">See the design system</TextLink>
           </div>
         </div>
 
@@ -36,7 +38,7 @@ export default function HomePage() {
       </main>
 
       <footer className="flex flex-wrap justify-between gap-x-6 gap-y-2 border-t border-rule py-5 text-small text-ink-3">
-        <p>Guest booking and the host dashboard are on their way.</p>
+        <p>The demo hotel is Dar Nubia Guesthouse, with made-up rooms and prices.</p>
         <p className="font-mono text-label">Payment is simulated in this demo</p>
       </footer>
     </div>
