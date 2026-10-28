@@ -32,6 +32,15 @@ describe('error responses', () => {
     });
   });
 
+  it('answers an unknown path outside /v1 with a 404 problem document too', async () => {
+    for (const path of ['/', '/metrics', '/health/nowhere']) {
+      const response = await request(app.getHttpServer()).get(path).expect(404);
+
+      expect(response.headers['content-type'], path).toMatch(/^application\/problem\+json/);
+      expect(response.body, path).toMatchObject({ code: 'NOT_FOUND', instance: path });
+    }
+  });
+
   it('generates a request id and returns it in the header and the body', async () => {
     const response = await request(app.getHttpServer()).get('/v1/nowhere').expect(404);
 
