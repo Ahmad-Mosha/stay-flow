@@ -15,6 +15,13 @@ export interface HttpConfig {
   readonly trustProxyHops: number;
   /** Browser origins, besides the API's own, allowed to send state-changing requests. */
   readonly trustedOrigins: readonly string[];
+  /**
+   * How long a stopping API keeps serving after it reports not ready, for the load balancer to
+   * stop sending it traffic. 0 suits a single instance; Kubernetes needs a few seconds.
+   */
+  readonly drainDelayMs: number;
+  /** How long a stopping API waits for the requests in flight before it cuts them off. */
+  readonly shutdownTimeoutMs: number;
 }
 
 /** The pause between runs of each of the worker's jobs. 0 turns a job off, so tests run it. */
@@ -79,6 +86,9 @@ const envSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(originSchema)),
+  SHUTDOWN_DRAIN_DELAY_MS: z.coerce.number().int().min(0).default(0),
+  // Longer than the statement timeout, so a request is not cut off while its query can finish.
+  SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(0).default(10_000),
   DATABASE_URL: z.url({
     protocol: /^postgres(ql)?$/,
     error: 'must be a postgres:// connection URL',
@@ -115,6 +125,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     http: {
       trustProxyHops: parsed.TRUST_PROXY_HOPS,
       trustedOrigins: parsed.TRUSTED_ORIGINS,
+      drainDelayMs: parsed.SHUTDOWN_DRAIN_DELAY_MS,
+      shutdownTimeoutMs: parsed.SHUTDOWN_TIMEOUT_MS,
     },
     database: {
       url: parsed.DATABASE_URL,

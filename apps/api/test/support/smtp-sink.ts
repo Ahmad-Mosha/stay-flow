@@ -2,6 +2,7 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { simpleParser } from 'mailparser';
 import { SMTPServer, type SMTPServerError } from 'smtp-server';
+import { deferred } from './deferred.js';
 
 export interface ReceivedEmail {
   /** With its angle brackets, such as `<0199…@stay-flow>`. */
@@ -131,13 +132,4 @@ export class SmtpSink {
     });
     callback();
   }
-}
-
-/** A promise with its resolve function, like ES2024's Promise.withResolvers. */
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
 }

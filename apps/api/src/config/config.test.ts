@@ -12,6 +12,8 @@ describe('loadConfig', () => {
       http: {
         trustProxyHops: 0,
         trustedOrigins: [],
+        drainDelayMs: 0,
+        shutdownTimeoutMs: 10_000,
       },
       database: {
         url: validEnv.DATABASE_URL,
