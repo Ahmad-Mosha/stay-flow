@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import { formatDate, plural } from '@/lib/format';
 import { Button } from '@/ui/button';
 import { CloseIcon } from '@/ui/icons';
+import { StatusTape } from '@/ui/status-tape';
 import { useHost } from '../host-context';
 import { hostKeys } from '../host-keys';
 import { daysBetween } from './tape';
@@ -62,9 +63,7 @@ export function BlockPanel({ block, today, onClose, onReleased }: BlockPanelProp
         >
           {block.reason}
         </h2>
-        <span className="tape-block inline-flex h-6.5 w-fit items-center rounded-sm border border-block-line px-2 text-label font-semibold text-ink-2">
-          <span className="rounded-[3px] bg-paper px-1">Blocked</span>
-        </span>
+        <StatusTape status="blocked" className="h-6.5 w-fit text-label" />
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-small">
