@@ -49,6 +49,12 @@ export const demoHost = {
   password: 'nubia-demo-password',
 } as const;
 
+/** The rest of the team, to try each role. They share the demo host's password. */
+export const demoTeam = [
+  { name: 'Youssef Adel', email: 'manager@example.com', role: 'manager' },
+  { name: 'Nadia Farouk', email: 'frontdesk@example.com', role: 'front_desk' },
+] as const;
+
 /** Holiday rates cover the nights of 18 December to 4 January. */
 export const holidaySeason = { label: 'Winter holidays', month: 12, day: 18, nights: 18 } as const;
 

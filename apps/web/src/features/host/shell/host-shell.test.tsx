@@ -52,6 +52,19 @@ describe('HostShell', () => {
     expect(nav.getByRole('link', { name: /Today/ })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('groups the pages that set up the property', () => {
+    renderShell();
+
+    const nav = within(screen.getByRole('navigation', { name: 'Dashboard' }));
+    const property = within(nav.getByRole('list', { name: 'Property' }));
+    expect(property.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      expect.stringContaining('Rooms'),
+      expect.stringContaining('Rates'),
+      expect.stringContaining('Team'),
+      expect.stringContaining('Settings'),
+    ]);
+  });
+
   it('opens a section with G and then its letter, but not while typing', async () => {
     const user = userEvent.setup();
     renderShell();

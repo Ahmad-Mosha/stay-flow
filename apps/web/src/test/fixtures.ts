@@ -9,6 +9,7 @@ import type {
   RateOverrideListResponse,
   ReservationResponse,
   RoomCalendarResponse,
+  TeamResponse,
   TodayResponse,
   UserResponse,
 } from '@stay-flow/contracts';
@@ -300,6 +301,33 @@ export const seasonList: RateOverrideListResponse = {
       nights: { from: '2026-12-18', to: '2027-01-05' },
       rateMinor: 310_000,
       label: 'Winter holidays',
+    },
+  ],
+};
+
+/** The demo team: the host, who owns the property, a manager and a front desk clerk. */
+export const teamList: TeamResponse = {
+  members: [
+    {
+      userId: host.id,
+      name: host.name,
+      email: host.email,
+      role: 'owner',
+      since: '2026-10-01T09:00:00.000Z',
+    },
+    {
+      userId: '01a1825d-ff34-7836-92e7-3ed28f880c74',
+      name: 'Youssef Adel',
+      email: 'manager@example.com',
+      role: 'manager',
+      since: '2026-10-01T09:00:00.000Z',
+    },
+    {
+      userId: '01a1825d-ff35-7836-92e7-3ed28f880c75',
+      name: 'Nadia Farouk',
+      email: 'frontdesk@example.com',
+      role: 'front_desk',
+      since: '2026-10-01T09:00:00.000Z',
     },
   ],
 };

@@ -24,7 +24,7 @@ import { Hint } from '@/ui/tooltip';
 import { LogoMark, Wordmark } from '@/ui/wordmark';
 import { HostContext } from '../host-context';
 import { initialsOf, roleLabel } from '../roles';
-import { activeItem, navFor, type NavItem } from './nav';
+import { activeItem, navFor, navGroups, type NavItem } from './nav';
 import { useTheme } from './theme';
 import { useGoShortcuts } from './use-go-shortcuts';
 
@@ -159,14 +159,31 @@ function Sidebar({ user, properties, property, items, current }: SidebarProps) {
 
       <PropertySwitcher properties={properties} property={property} current={current} />
 
-      <nav aria-label="Dashboard">
-        <ul className="flex flex-col gap-0.5">
-          {items.map((item) => (
-            <li key={item.href}>
-              <NavLink item={item} active={item === current} />
-            </li>
-          ))}
-        </ul>
+      <nav aria-label="Dashboard" className="flex flex-col gap-5">
+        {navGroups.map((group) => (
+          <div key={group.id} className="flex flex-col gap-1.5">
+            {group.title && (
+              <p
+                id={`nav-${group.id}`}
+                className="px-2.5 font-mono text-[0.6875rem] tracking-[0.04em] text-ink-3 uppercase"
+              >
+                {group.title}
+              </p>
+            )}
+            <ul
+              {...(group.title && { 'aria-labelledby': `nav-${group.id}` })}
+              className="flex flex-col gap-0.5"
+            >
+              {items
+                .filter((item) => item.group === group.id)
+                .map((item) => (
+                  <li key={item.href}>
+                    <NavLink item={item} active={item === current} />
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="mt-auto flex items-center gap-2 border-t border-rule pt-4">
@@ -192,11 +209,12 @@ function Rail({ user, property, items, current }: Omit<SidebarProps, 'properties
       </Hint>
       <nav aria-label="Dashboard">
         <ul className="flex flex-col gap-1">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const Icon = item.icon;
             const active = item === current;
+            const startsGroup = index > 0 && items[index - 1]?.group !== item.group;
             return (
-              <li key={item.href}>
+              <li key={item.href} className={cx(startsGroup && 'mt-2 border-t border-rule pt-3')}>
                 <Hint
                   label={
                     item.shortcut ? `${item.label} · G ${item.shortcut.toUpperCase()}` : item.label

@@ -1,7 +1,7 @@
 import { Temporal } from 'temporal-polyfill';
 import { loadConfig } from '../config/config.js';
 import { createDatabase } from '../platform/database/database.js';
-import { demoHost } from './demo-property.js';
+import { demoHost, demoTeam } from './demo-property.js';
 import { seedDemoHost } from './seed-demo-host.js';
 import { seedDemoProperty } from './seed-demo-property.js';
 
@@ -25,6 +25,7 @@ try {
   );
   await seedDemoHost(db);
   console.info(`Sign in to the host dashboard as ${demoHost.email} / ${demoHost.password}`);
+  console.info(`Or try another role: ${demoTeam.map(({ email }) => email).join(', ')}`);
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
