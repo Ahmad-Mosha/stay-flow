@@ -1,0 +1,150 @@
+# Production stack for one small server (1 vCPU, 1 GB RAM, 2 GB swap). The images come from GHCR,
+# built by the Deploy workflow; nothing is built on the server. See README.md in this folder.
+name: stay-flow
+
+x-logging: &logging # Docker keeps container logs forever by default, which fills a small disk.
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  LOG_LEVEL: info
+  DATABASE_URL: postgres://stayflow:${POSTGRES_PASSWORD:?}@postgres:5432/stayflow
+  # The API and the worker each keep this many connections; Postgres allows 30 in all.
+  DATABASE_POOL_MAX: '5'
+  SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+  MAIL_FROM: ${MAIL_FROM:-Stay Flow <bookings@stayflow.test>}
+  WEB_URL: https://${DOMAIN:?}
+  # Caddy is the only proxy in front of the API, and it adds X-Forwarded-For.
+  TRUST_PROXY_HOPS: '1'
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m
+    # Sized for a 1 GB server shared with four other containers; the defaults assume more memory.
+    command: >-
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=256MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=30
+    environment:
+      POSTGRES_USER: stayflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: stayflow
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stayflow -d stayflow']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # Runs on every deploy before the new API starts, and exits.
+  migrate:
+    image: ghcr.io/ahmad-mosha/stay-flow-api:${IMAGE_TAG:-latest}
+    logging: *logging
+    command: ['node', 'dist/platform/database/migrate.js']
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ghcr.io/ahmad-mosha/stay-flow-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 192m
+    environment:
+      <<: *api-environment
+      # A heap cap below the container's, so V8 collects garbage before the kernel kills it.
+      NODE_OPTIONS: --max-old-space-size=128
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '/dev/null', 'http://127.0.0.1:3000/health/ready']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Expires holds, marks no-shows and sends the booking emails from the outbox.
+  worker:
+    image: ghcr.io/ahmad-mosha/stay-flow-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 160m
+    command: ['node', '--enable-source-maps', 'dist/worker.js']
+    environment:
+      <<: *api-environment
+      NODE_OPTIONS: --max-old-space-size=96
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: ghcr.io/ahmad-mosha/stay-flow-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 224m
+    environment:
+      # Server components call the API directly on the private network.
+      API_URL: http://api:3000
+      NODE_OPTIONS: --max-old-space-size=160
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '/dev/null', 'http://127.0.0.1:3001/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # The only public entry: HTTPS with a Let's Encrypt certificate, then /v1 to the API and the rest
+  # to the web app.
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 64m
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+  # Catches every email until SMTP_URL points at a real mail server. Its inbox is not public: open
+  # it through an SSH tunnel (see README.md).
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 64m
+    ports:
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  postgres-data:
+  # Caddy's certificates and ACME account. Losing them means asking Let's Encrypt again.
+  caddy-data:
+  caddy-config:
