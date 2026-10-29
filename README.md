@@ -6,6 +6,11 @@ A booking platform for small hotels: a direct-booking site for guests and a fron
 people who run the hotel. Under the screens is a backend built so that one room can never be sold
 twice, whatever the timing: PostgreSQL enforces it, and concurrency tests prove it.
 
+**Live demo:** [stayfloww.duckdns.org](https://stayfloww.duckdns.org). Book a room at
+[Dar Nubia](https://stayfloww.duckdns.org/stay/dar-nubia), or
+[sign in](https://stayfloww.duckdns.org/sign-in) as `host@example.com` with the password
+`nubia-demo-password` to run the front desk.
+
 ![The booking page of the demo hotel, with a price under every night](docs/screenshots/booking.webp)
 
 **Stack:** TypeScript everywhere. NestJS, Kysely and PostgreSQL 18 on the backend; Next.js 16,
@@ -234,10 +239,10 @@ end-to-end suite on every pull request.
 
 ## Deployment
 
-Production runs on one small Linux server with Docker Compose, behind Caddy for HTTPS. After CI
-passes on `main`, a GitHub Actions workflow pushes the images to GHCR and deploys them over SSH,
-running the migrations first and waiting for every container to be healthy. Server setup, secrets,
-backups and rollbacks are in [deploy/README.md](deploy/README.md).
+The live demo runs on one small Linux server (1 vCPU, 1 GB RAM) with Docker Compose, behind Caddy
+for HTTPS. After CI passes on `main`, a GitHub Actions workflow pushes the images to GHCR and
+deploys them over SSH, running the migrations first and waiting for every container to be healthy.
+Server setup, secrets, backups and rollbacks are in [deploy/README.md](deploy/README.md).
 
 ## Project layout
 

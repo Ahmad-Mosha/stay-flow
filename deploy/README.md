@@ -81,7 +81,7 @@ In the repository's **Settings → Secrets and variables → Actions**:
 | Name                 | Kind     | Value                                                |
 | -------------------- | -------- | ---------------------------------------------------- |
 | `DEPLOY_SSH_KEY`     | secret   | The deploy key's private half                        |
-| `DEPLOY_HOST`        | variable | The domain, such as `stayflow.duckdns.org`           |
+| `DEPLOY_HOST`        | variable | The domain, such as `stayfloww.duckdns.org`          |
 | `DEPLOY_KNOWN_HOSTS` | variable | The output of `ssh-keyscan -t ed25519 <DEPLOY_HOST>` |
 | `DEPLOY_USER`        | variable | Optional; `deploy` by default                        |
 
