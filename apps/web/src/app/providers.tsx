@@ -1,12 +1,13 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { I18nProvider, RouterProvider } from 'react-aria-components';
-import { ApiError } from '@/api/client';
+import { ApiError, isApiError } from '@/api/client';
 import { locale } from '@/lib/format';
+import { routes } from '@/lib/routes';
 
 declare module 'react-aria-components' {
   interface RouterConfig {
@@ -15,8 +16,17 @@ declare module 'react-aria-components' {
   }
 }
 
+// A session can end while a page is open (signed out in another tab, say): sign in again, then
+// come back to the same page.
+function signInAgain(error: Error) {
+  if (!isApiError(error, 'UNAUTHENTICATED')) return;
+  window.location.assign(routes.signIn(window.location.pathname + window.location.search));
+}
+
 function createQueryClient() {
   return new QueryClient({
+    queryCache: new QueryCache({ onError: signInAgain }),
+    mutationCache: new MutationCache({ onError: signInAgain }),
     defaultOptions: {
       queries: {
         staleTime: 15_000,

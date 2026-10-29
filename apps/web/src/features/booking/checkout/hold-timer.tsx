@@ -1,23 +1,8 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { serverNow } from '@/api/server-clock';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { formatTime, plural, zoneLabel } from '@/lib/format';
 import { cx } from '@/ui/cx';
-
-/** Server time, ticking. Hold deadlines come from the database clock, not this device's. */
-export function useServerNow(intervalMs = 1000): number {
-  const [now, setNow] = useState(serverNow);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(serverNow());
-    }, intervalMs);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [intervalMs]);
-  return now;
-}
 
 interface HoldFrameProps {
   expiresAt: number;

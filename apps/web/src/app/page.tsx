@@ -8,9 +8,14 @@ export default function HomePage() {
     <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-8 lg:px-12">
       <header className="flex items-center justify-between gap-6 border-b border-rule py-5">
         <Wordmark className="text-heading" />
-        <TextLink href={routes.property('dar-nubia')} className="text-small">
-          Guest booking
-        </TextLink>
+        <nav aria-label="Demo" className="flex items-center gap-6">
+          <TextLink href={routes.property('dar-nubia')} className="text-small">
+            Guest booking
+          </TextLink>
+          <TextLink href={routes.signIn()} className="text-small">
+            Front desk
+          </TextLink>
+        </nav>
       </header>
 
       <main className="flex flex-1 flex-col justify-center gap-14 py-16 sm:py-24">
@@ -29,6 +34,9 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
             <ButtonLink href={routes.property('dar-nubia')} size="lg">
               Book a demo stay
+            </ButtonLink>
+            <ButtonLink href={routes.signIn()} variant="secondary" size="lg">
+              Run the front desk
             </ButtonLink>
             <TextLink href="/design-system">See the design system</TextLink>
           </div>
