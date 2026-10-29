@@ -23,6 +23,7 @@ const formatters = {
   dayShortMonth: new DateFormatter(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }),
   monthYear: new DateFormatter(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
   month: new DateFormatter(locale, { month: 'long', timeZone: 'UTC' }),
+  monthShort: new DateFormatter(locale, { month: 'short', timeZone: 'UTC' }),
 };
 
 export type DateStyle = keyof typeof formatters;
@@ -92,6 +93,17 @@ export function formatTime(instant: string | number | Date, timeZone: string): s
 export function formatDateTime(instant: string | number | Date, timeZone: string): string {
   return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(instant));
+}
+
+/** "12 Oct, 09:14", on the property's clock: when something happened. */
+export function formatDayTime(instant: string | number | Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',

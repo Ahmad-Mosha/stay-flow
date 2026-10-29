@@ -9,7 +9,7 @@ import { cx } from './cx';
 import { Spinner } from './spinner';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger';
-export type ButtonSize = 'md' | 'lg';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonStyleProps {
   /** Primary is the one action a screen asks for; it is the only place the accent colour appears. */
@@ -35,6 +35,7 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
+  sm: 'h-10 px-3.5 text-small',
   md: 'h-11 px-4 text-small',
   lg: 'h-13 px-6 text-body',
 };

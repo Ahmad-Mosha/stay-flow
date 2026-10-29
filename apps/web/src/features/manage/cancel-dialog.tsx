@@ -7,7 +7,7 @@ import { formatStay } from '@/lib/format';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
 import { TextField } from '@/ui/text-field';
-import { RefundLines } from './refund-lines';
+import { RefundLines } from '../booking/refund-lines';
 
 interface CancelDialogProps {
   booking: GuestReservationResponse;

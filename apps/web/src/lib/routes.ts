@@ -14,6 +14,8 @@ export const routes = {
   checkout: (slug: string, holdId: string) => route(`/stay/${slug}/checkout/${holdId}`),
   signIn: (next?: string) => route(next ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in'),
   today: (slug: string) => route(`/host/${slug}/today`),
+  calendar: (slug: string, query?: string) =>
+    route(query ? `/host/${slug}/calendar?${query}` : `/host/${slug}/calendar`),
 };
 
 /** A page to return to after signing in: only one of the host's own, never another site. */

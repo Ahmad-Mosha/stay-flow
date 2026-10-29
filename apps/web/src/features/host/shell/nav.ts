@@ -1,7 +1,7 @@
 import type { Route } from 'next';
 import type { ComponentType } from 'react';
 import { routes } from '@/lib/routes';
-import { SunIcon } from '@/ui/icons';
+import { CalendarIcon, SunIcon } from '@/ui/icons';
 
 export interface NavItem {
   label: string;
@@ -9,11 +9,22 @@ export interface NavItem {
   icon: ComponentType<{ className?: string }>;
   /** Pressed after G, as in G then T for Today. */
   shortcut?: string;
+  /** Needs the width: the sidebar shrinks to a rail of icons. */
+  wide?: boolean;
 }
 
 /** The dashboard's sections for one property. */
 export function navFor(slug: string): NavItem[] {
-  return [{ label: 'Today', href: routes.today(slug), icon: SunIcon, shortcut: 't' }];
+  return [
+    { label: 'Today', href: routes.today(slug), icon: SunIcon, shortcut: 't' },
+    {
+      label: 'Calendar',
+      href: routes.calendar(slug),
+      icon: CalendarIcon,
+      shortcut: 'c',
+      wide: true,
+    },
+  ];
 }
 
 /** The section a path is in, or undefined for a page outside them. */
