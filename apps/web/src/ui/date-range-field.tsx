@@ -1,6 +1,7 @@
 'use client';
 
 import { parseDate } from '@internationalized/date';
+import { useState } from 'react';
 import {
   Button,
   CalendarCell,
@@ -21,6 +22,7 @@ import {
   Text,
   type DateRangePickerProps,
   type DateValue,
+  type RangeValue,
 } from 'react-aria-components';
 import { cx } from './cx';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
@@ -65,14 +67,29 @@ export function DateRangeField({
   className,
   ...props
 }: DateRangeFieldProps) {
+  // The field keeps what is typed, even a half-typed end before the start (year 2 on the way to
+  // 2027), and only whole ranges go up. It follows `value` when the parent changes it.
+  const [shown, setShown] = useState(() => toPickerRange(value));
+  const [synced, setSynced] = useState(value);
+  if (value?.start !== synced?.start || value?.end !== synced?.end) {
+    setSynced(value);
+    setShown(toPickerRange(value));
+  }
+
   return (
     <DateRangePicker
       {...props}
-      value={value ? { start: parseDate(value.start), end: parseDate(value.end) } : null}
+      value={shown}
       onChange={(range) => {
-        if (!range) return;
+        if (!range || range.end.compare(range.start) < 0) {
+          setShown(range);
+          return;
+        }
         const end = range.end.compare(range.start) > 0 ? range.end : range.start.add({ days: 1 });
-        onChange({ start: range.start.toString(), end: end.toString() });
+        const next = { start: range.start.toString(), end: end.toString() };
+        setShown({ start: range.start, end });
+        setSynced(next);
+        onChange(next);
       }}
       {...(minValue && { minValue: parseDate(minValue) })}
       className={cx('group flex flex-col gap-2', className)}
@@ -145,4 +162,8 @@ export function DateRangeField({
       </Popover>
     </DateRangePicker>
   );
+}
+
+function toPickerRange(range: DateRange | null): RangeValue<DateValue> | null {
+  return range ? { start: parseDate(range.start), end: parseDate(range.end) } : null;
 }

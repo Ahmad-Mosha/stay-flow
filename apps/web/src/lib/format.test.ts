@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   formatAmount,
   formatDate,
+  formatDateSpan,
   formatDateTime,
   formatDayRange,
   formatMoney,
   formatStay,
   formatTime,
   plural,
+  toMajor,
+  toMinor,
   zoneLabel,
 } from './format';
 
@@ -29,6 +32,19 @@ describe('format', () => {
     expect(formatAmount(1_234_550, 'EGP')).toBe('12,345.50');
     expect(formatAmount(5_000, 'JPY')).toBe('5,000');
     expect(formatMoney(240_000, 'EGP')).toBe('2,400 EGP');
+  });
+
+  it('converts typed amounts to minor units and back', () => {
+    expect(toMinor(2400, 'EGP')).toBe(240_000);
+    expect(toMinor(19.99, 'EGP')).toBe(1999);
+    expect(toMinor(5000, 'JPY')).toBe(5000);
+    expect(toMajor(240_000, 'EGP')).toBe(2400);
+  });
+
+  it('adds the year to a date span only when it is not this one', () => {
+    expect(formatDateSpan('2026-10-29', '2026-11-01', '2026')).toBe('29 Oct – 1 Nov');
+    expect(formatDateSpan('2027-01-20', '2027-01-23', '2026')).toBe('20 Jan – 23 Jan 2027');
+    expect(formatDateSpan('2026-12-18', '2027-01-04', '2026')).toBe('18 Dec 2026 – 4 Jan 2027');
   });
 
   it('shows times on the property clock', () => {

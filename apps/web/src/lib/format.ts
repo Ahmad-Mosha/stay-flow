@@ -51,6 +51,15 @@ export function formatDayRange(first: string, last: string): string {
   return `${startText}–${formatDate(end, 'dayShortMonth')}`;
 }
 
+/** "29 Oct – 1 Nov", with the year when the dates are not both in `thisYear`. */
+export function formatDateSpan(from: string, to: string, thisYear: string): string {
+  const [first, last] = [formatDate(from, 'dayShortMonth'), formatDate(to, 'dayShortMonth')];
+  const [fromYear, toYear] = [from.slice(0, 4), to.slice(0, 4)];
+  if (fromYear === thisYear && toYear === thisYear) return `${first} – ${last}`;
+  if (fromYear === toYear) return `${first} – ${last} ${toYear}`;
+  return `${first} ${fromYear} – ${last} ${toYear}`;
+}
+
 export function plural(count: number, one: string, many = `${one}s`): string {
   return `${count.toLocaleString(locale)} ${count === 1 ? one : many}`;
 }
@@ -80,6 +89,16 @@ export function formatAmount(minor: number, currency: string): string {
 
 export function formatMoney(minor: number, currency: string): string {
   return `${formatAmount(minor, currency)} ${currency}`;
+}
+
+/** An amount typed in the currency's main unit, such as 2,400 EGP, in its minor unit. */
+export function toMinor(major: number, currency: string): number {
+  return Math.round(major * 10 ** digitsOf(currency));
+}
+
+/** The other way round, for a field to show. */
+export function toMajor(minor: number, currency: string): number {
+  return minor / 10 ** digitsOf(currency);
 }
 
 /** "14:52", on the property's clock. */

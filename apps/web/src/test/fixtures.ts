@@ -4,7 +4,9 @@ import type {
   HostPropertyResponse,
   HostReservationDetailResponse,
   HostReservationResponse,
+  HostUnitTypeListResponse,
   PropertyResponse,
+  RateOverrideListResponse,
   ReservationResponse,
   RoomCalendarResponse,
   TodayResponse,
@@ -259,6 +261,45 @@ export const weeksCalendar: RoomCalendarResponse = {
           ],
         },
       ],
+    },
+  ],
+};
+
+/** Two room types: the garden rooms, and a suite with no rooms yet. */
+export const unitTypeList: HostUnitTypeListResponse = {
+  unitTypes: [
+    {
+      ...garden,
+      slug: 'garden-double',
+      description: 'A quiet double room opening onto the palm garden.',
+      maxGuests: 2,
+      baseRateMinor: 240_000,
+      units: [
+        { id: '01a1825d-fdee-7caf-9e8d-ded549254d8b', name: '102' },
+        { id: '01a1825d-fdef-7caf-9e8d-ded549254d8c', name: '103' },
+      ],
+    },
+    {
+      id: '01a1825d-fde0-7d91-b222-b86baff7fa9c',
+      slug: 'family-suite',
+      name: 'Family Suite',
+      description: '',
+      maxGuests: 4,
+      baseRateMinor: 520_000,
+      units: [],
+    },
+  ],
+};
+
+/** The winter holidays on the garden rooms. */
+export const seasonList: RateOverrideListResponse = {
+  rateOverrides: [
+    {
+      id: '01a1825d-fee0-7bec-80b4-a135d7ed5da0',
+      unitTypeId: garden.id,
+      nights: { from: '2026-12-18', to: '2027-01-05' },
+      rateMinor: 310_000,
+      label: 'Winter holidays',
     },
   ],
 };

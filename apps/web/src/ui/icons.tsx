@@ -166,3 +166,45 @@ export function ArrowLeftIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function DoorIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.5 20.5h13M7 20.5V4.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16" />
+      <path d="M14 12.5v.01" />
+    </Icon>
+  );
+}
+
+export function TagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.3 7.3a1 1 0 0 1-1.4 0z" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+    </Icon>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M15.5 5.5l3 3M4.5 19.5l1-4 10.5-10.5 3 3L8.5 18.5z" />
+    </Icon>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5" />
+    </Icon>
+  );
+}
