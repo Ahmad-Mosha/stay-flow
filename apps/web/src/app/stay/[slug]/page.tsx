@@ -4,6 +4,7 @@ import { BookingSearch } from '@/features/booking/booking-search';
 import { PropertyFooter, PropertyHeader } from '@/features/booking/property-chrome';
 import { plural } from '@/lib/format';
 import { TextLink } from '@/ui/link';
+import { StatePanel } from '@/ui/state-panel';
 import { getProperty } from './property';
 
 export async function generateMetadata({ params }: PageProps<'/stay/[slug]'>): Promise<Metadata> {
@@ -82,9 +83,16 @@ export default async function PropertyPage({ params }: PageProps<'/stay/[slug]'>
           </ol>
         </section>
 
-        <Suspense>
-          <BookingSearch property={property} />
-        </Suspense>
+        {property.acceptingBookings ? (
+          <Suspense>
+            <BookingSearch property={property} />
+          </Suspense>
+        ) : (
+          <StatePanel eyebrow="Opening soon" title="Not taking bookings yet" className="max-w-2xl">
+            {property.name} is still setting up its rooms. Its nights and prices show here as soon
+            as they are ready.
+          </StatePanel>
+        )}
       </main>
 
       <PropertyFooter />

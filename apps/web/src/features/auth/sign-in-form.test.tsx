@@ -98,6 +98,27 @@ describe('SignInForm', () => {
     expect(api).toHaveBeenCalledWith('signIn', { body: demoHost });
   });
 
+  it('signs in as the rest of the demo team too', async () => {
+    const user = userEvent.setup();
+    api.mockResolvedValue(host);
+    renderForm();
+
+    await user.click(screen.getByRole('button', { name: 'Front desk' }));
+
+    expect(api).toHaveBeenCalledWith('signIn', {
+      body: { email: 'frontdesk@example.com', password: demoHost.password },
+    });
+  });
+
+  it('points a new host to sign up', () => {
+    renderForm();
+
+    expect(screen.getByRole('link', { name: 'Create an account' })).toHaveAttribute(
+      'href',
+      '/sign-up',
+    );
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = renderForm();
 

@@ -13,6 +13,8 @@ export const routes = {
     route(query ? `/stay/${slug}?${query}` : `/stay/${slug}`),
   checkout: (slug: string, holdId: string) => route(`/stay/${slug}/checkout/${holdId}`),
   signIn: (next?: string) => route(next ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in'),
+  signUp: () => route('/sign-up'),
+  newProperty: () => route('/host/new'),
   today: (slug: string) => route(`/host/${slug}/today`),
   calendar: (slug: string, query?: string) =>
     route(query ? `/host/${slug}/calendar?${query}` : `/host/${slug}/calendar`),

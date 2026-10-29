@@ -116,6 +116,28 @@ describe('TodayView', () => {
     expect(api).toHaveBeenCalledWith('getToday', expect.anything());
   });
 
+  it('walks a property with no rooms yet through its first steps', async () => {
+    const empty = {
+      date: '2026-10-29',
+      arrivals: [],
+      departures: [],
+      inHouse: [],
+      tonight: { rooms: 0, sold: 0, held: 0, blocked: 0, free: 0 },
+      thisMonth: { month: '2026-10', nightsSold: 0, currency: 'EGP', revenueMinor: 0 },
+    };
+    const { container } = renderToday(empty);
+
+    const guide = within(screen.getByRole('region', { name: 'A few steps to your first booking' }));
+    expect(guide.getByRole('link', { name: 'Add rooms' })).toHaveAttribute(
+      'href',
+      '/host/dar-nubia/rooms',
+    );
+    expect(guide.getByText(/stays of 1 to 21 nights/)).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Rooms tonight' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Block dates' })).toBeNull();
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = renderToday();
 

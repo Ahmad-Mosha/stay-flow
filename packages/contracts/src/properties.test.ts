@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { updatePropertyRequestSchema } from './properties.js';
+import { createPropertyRequestSchema, updatePropertyRequestSchema } from './properties.js';
+
+describe('createPropertyRequestSchema', () => {
+  const property = {
+    slug: 'nile-loft',
+    name: 'Nile Loft',
+    timeZone: 'Africa/Cairo',
+    currency: 'EGP',
+  };
+
+  it('takes a new property', () => {
+    expect(createPropertyRequestSchema.parse(property)).toEqual(property);
+  });
+
+  it('keeps the slugs of the dashboard pages for the dashboard', () => {
+    const result = createPropertyRequestSchema.safeParse({ ...property, slug: 'new' });
+
+    expect(result.error?.issues).toMatchObject([{ path: ['slug'] }]);
+  });
+});
 
 describe('updatePropertyRequestSchema', () => {
   it('takes any subset of the settings', () => {

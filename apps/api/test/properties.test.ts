@@ -1,9 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { propertyResponseSchema } from '@stay-flow/contracts';
+import { publicPropertyResponseSchema } from '@stay-flow/contracts';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../src/platform/database/database.js';
-import { connectTestDatabase, createInventory } from './support/fixtures.js';
+import { connectTestDatabase, createInventory, uniqueSlug } from './support/fixtures.js';
 import { createTestApp } from './support/test-app.js';
 
 describe('GET /v1/properties/:slug', () => {
@@ -28,7 +28,7 @@ describe('GET /v1/properties/:slug', () => {
 
     const response = await request(app.getHttpServer()).get(`/v1/properties/${slug}`).expect(200);
 
-    expect(propertyResponseSchema.parse(response.body)).toEqual({
+    expect(publicPropertyResponseSchema.parse(response.body)).toEqual({
       slug,
       name: 'Test Guesthouse',
       timeZone: 'Africa/Cairo',
@@ -41,7 +41,25 @@ describe('GET /v1/properties/:slug', () => {
         bookingWindowDays: 365,
         freeCancellationHours: 48,
       },
+      acceptingBookings: true,
     });
+  });
+
+  it('says a property with no rooms yet takes no bookings', async () => {
+    const { slug } = await db
+      .insertInto('properties')
+      .values({
+        slug: uniqueSlug('new-place'),
+        name: 'New Place',
+        timeZone: 'Africa/Cairo',
+        currency: 'EGP',
+      })
+      .returning('slug')
+      .executeTakeFirstOrThrow();
+
+    const response = await request(app.getHttpServer()).get(`/v1/properties/${slug}`).expect(200);
+
+    expect(response.body).toMatchObject({ slug, acceptingBookings: false });
   });
 
   it('answers 404 for an unknown slug', async () => {

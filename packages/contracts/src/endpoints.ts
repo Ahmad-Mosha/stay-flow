@@ -34,7 +34,7 @@ import {
   createPropertyRequestSchema,
   hostPropertyListResponseSchema,
   hostPropertyResponseSchema,
-  propertyResponseSchema,
+  publicPropertyResponseSchema,
   updatePropertyRequestSchema,
 } from './properties.js';
 import {
@@ -152,11 +152,11 @@ export const endpoints = {
     method: 'get',
     path: '/v1/properties/{slug}',
     tag: 'Booking',
-    summary: 'Get a property and its stay rules',
+    summary: 'Get a property, its stay rules, and whether it takes bookings yet',
     auth: 'public',
     params: slugParams,
     status: 200,
-    response: propertyResponseSchema,
+    response: publicPropertyResponseSchema,
   },
   searchAvailability: {
     method: 'get',

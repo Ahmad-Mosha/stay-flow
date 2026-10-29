@@ -5,7 +5,6 @@ import type {
   HostPropertyResponse,
   UserResponse,
 } from '@stay-flow/contracts';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState, type ReactNode } from 'react';
 import {
@@ -16,12 +15,21 @@ import {
   Modal,
   ModalOverlay,
 } from 'react-aria-components';
-import { api } from '@/api/client';
+import { routes } from '@/lib/routes';
 import { cx } from '@/ui/cx';
-import { ChevronDownIcon, CloseIcon, MenuIcon, MoonIcon, SignOutIcon, SunIcon } from '@/ui/icons';
-import { Menu, MenuGroup, MenuItem } from '@/ui/menu';
+import {
+  ChevronDownIcon,
+  CloseIcon,
+  MenuIcon,
+  MoonIcon,
+  PlusIcon,
+  SignOutIcon,
+  SunIcon,
+} from '@/ui/icons';
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from '@/ui/menu';
 import { Hint } from '@/ui/tooltip';
 import { LogoMark, Wordmark } from '@/ui/wordmark';
+import { useSignOut } from '@/features/auth/use-sign-out';
 import { HostContext } from '../host-context';
 import { initialsOf, roleLabel } from '../roles';
 import { activeItem, navFor, navGroups, type NavItem } from './nav';
@@ -296,27 +304,34 @@ function PropertySwitcher({
         </span>
         <ChevronDownIcon className="size-4 text-ink-2" />
       </AriaButton>
-      <Menu
-        aria-label="Your properties"
-        selectionMode="single"
-        selectedKeys={[property.slug]}
-        disallowEmptySelection
-        onSelectionChange={(keys) => {
-          if (keys === 'all') return;
-          const [slug] = keys;
-          if (typeof slug !== 'string' || slug === property.slug) return;
-          // Stay in the same section: from one property's calendar to the other's.
-          const section = navFor(slug).find((item) => item.label === current?.label);
-          router.push(section?.href ?? navFor(slug)[0]?.href ?? '/host');
-        }}
-      >
-        <MenuGroup title="Your properties">
+      <Menu aria-label="Your properties">
+        <MenuGroup
+          title="Your properties"
+          selectionMode="single"
+          selectedKeys={[property.slug]}
+          disallowEmptySelection
+          onSelectionChange={(keys) => {
+            if (keys === 'all') return;
+            const [slug] = keys;
+            if (typeof slug !== 'string' || slug === property.slug) return;
+            // Stay in the same section: from one property's calendar to the other's.
+            const section = navFor(slug).find((item) => item.label === current?.label);
+            router.push(section?.href ?? navFor(slug)[0]?.href ?? '/host');
+          }}
+        >
           {properties.map((option) => (
             <MenuItem key={option.slug} id={option.slug} description={roleLabel(option.role)}>
               {option.name}
             </MenuItem>
           ))}
         </MenuGroup>
+        <MenuSeparator />
+        <MenuItem id="new" href={routes.newProperty()} textValue="Add a property">
+          <span className="flex items-center gap-2.5">
+            <PlusIcon className="size-4 text-ink-2" />
+            Add a property
+          </span>
+        </MenuItem>
       </Menu>
     </MenuTrigger>
   );
@@ -332,17 +347,7 @@ function AccountMenu({
   /** Just the initials, in the rail. */
   compact?: boolean;
 }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const signOut = useMutation({
-    mutationFn: () => api('signOut'),
-    // Nothing read under this session stays behind for whoever uses the device next.
-    onSettled: () => {
-      queryClient.clear();
-      router.replace('/sign-in');
-      router.refresh();
-    },
-  });
+  const signOut = useSignOut();
   return (
     <MenuTrigger>
       <AriaButton

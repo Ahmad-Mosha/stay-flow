@@ -58,6 +58,17 @@ export class PropertiesRepository {
     return row === undefined ? undefined : toProperty(row);
   }
 
+  /** Whether the property has a room yet. Read here, beside the property, for its public page. */
+  async hasUnits(propertyId: string): Promise<boolean> {
+    const row = await this.db
+      .selectFrom('units')
+      .select('id')
+      .where('propertyId', '=', propertyId)
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
   /** Applies the changes, or returns undefined if no property has this id. */
   async update(id: string, changes: PropertyChanges): Promise<Property | undefined> {
     const row = await this.db

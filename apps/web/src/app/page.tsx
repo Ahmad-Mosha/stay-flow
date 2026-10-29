@@ -15,6 +15,9 @@ export default function HomePage() {
           <TextLink href={routes.signIn()} className="text-small">
             Front desk
           </TextLink>
+          <TextLink href={routes.signUp()} className="hidden text-small sm:inline">
+            Open your property
+          </TextLink>
         </nav>
       </header>
 
@@ -38,6 +41,7 @@ export default function HomePage() {
             <ButtonLink href={routes.signIn()} variant="secondary" size="lg">
               Run the front desk
             </ButtonLink>
+            <TextLink href={routes.signUp()}>Open your own property</TextLink>
             <TextLink href="/design-system">See the design system</TextLink>
           </div>
         </div>

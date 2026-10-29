@@ -1,11 +1,20 @@
-import type { Route } from 'next';
+import type { ReactNode } from 'react';
 import { roomTileStyles } from '@/features/host/today/tonight-card';
 import { cx } from '@/ui/cx';
 import { TextLink } from '@/ui/link';
 import { Wordmark } from '@/ui/wordmark';
-import { SignInForm } from './sign-in-form';
 
-export function SignInScreen({ next }: { next: Route }) {
+interface AuthScreenProps {
+  /** A short mono tag above the title, such as "Front desk". */
+  eyebrow: string;
+  title: string;
+  intro: string;
+  /** The form, and what follows it. */
+  children: ReactNode;
+}
+
+/** Signing in and signing up: the form on one side, the dashboard it leads to on the other. */
+export function AuthScreen({ eyebrow, title, intro, children }: AuthScreenProps) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="flex flex-col px-4 sm:px-10 lg:px-14 xl:px-20">
@@ -19,17 +28,14 @@ export function SignInScreen({ next }: { next: Route }) {
           <div className="mx-auto flex w-full max-w-[25rem] flex-col gap-8 lg:mx-0">
             <div className="flex flex-col gap-3">
               <p className="font-mono text-label tracking-[0.08em] text-ink-2 uppercase">
-                Front desk
+                {eyebrow}
               </p>
               <h1 className="font-display text-[2.75rem] leading-none font-normal tracking-[-0.02em]">
-                Sign in
+                {title}
               </h1>
-              <p className="text-body text-pretty text-ink-2">
-                For the people who run the hotel. Guests need no account: the link in their
-                confirmation email opens their booking.
-              </p>
+              <p className="text-body text-pretty text-ink-2">{intro}</p>
             </div>
-            <SignInForm next={next} />
+            {children}
           </div>
         </main>
       </div>
