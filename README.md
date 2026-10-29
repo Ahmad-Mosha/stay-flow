@@ -183,8 +183,7 @@ You need Docker. From the repository root:
 docker compose --profile full up -d --build --wait
 ```
 
-This builds the images, runs the migrations, adds six demo hotels with months of bookings, and
-starts everything.
+This builds the images, runs the migrations, adds a demo hotel with bookings, and starts everything.
 
 | What                    | Where                                |
 | ----------------------- | ------------------------------------ |
@@ -213,7 +212,7 @@ pnpm install
 docker compose up -d                       # Postgres and Mailpit only
 cp apps/api/.env.example apps/api/.env
 pnpm build                                 # the API and web app import the built contracts
-pnpm db:migrate && pnpm db:seed            # schema and the demo hotels
+pnpm db:migrate && pnpm db:seed            # schema and the demo hotel
 
 pnpm dev                                   # API on :3000
 pnpm dev:worker                            # outbox, sweeper and night audit
@@ -224,7 +223,7 @@ pnpm dev:web                               # web app on :3001
 
 | Suite      | Tool                    | Tests | What it covers                                                           |
 | ---------- | ----------------------- | ----: | ------------------------------------------------------------------------ |
-| API        | Vitest + Testcontainers |   524 | Unit tests, HTTP integration tests on a real Postgres, races, the worker |
+| API        | Vitest + Testcontainers |   511 | Unit tests, HTTP integration tests on a real Postgres, races, the worker |
 | Web        | Vitest + jsdom + axe    |   242 | Components, views and their accessibility                                |
 | Contracts  | Vitest                  |    41 | The shared Zod schemas                                                   |
 | End to end | Playwright + axe        |    23 | Whole journeys on the Docker stack, desktop and phone, WCAG 2.2 AA scans |
