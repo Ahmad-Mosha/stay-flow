@@ -63,6 +63,25 @@
   --radius-full: 9999px;
 
   --shadow-*: initial;
+  --shadow-overlay: 0 24px 64px -16px rgb(21 23 28 / 0.35);
+
+  --animate-overlay-in: fade-in 180ms ease-out;
+  --animate-overlay-out: fade-in 140ms ease-in reverse;
+  --animate-dialog-in: rise-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-dialog-out: rise-in 140ms ease-in reverse;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
 }
 
 @layer base {

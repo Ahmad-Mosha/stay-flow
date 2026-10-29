@@ -1,5 +1,6 @@
 import type {
   AvailabilityResponse,
+  GuestReservationResponse,
   PropertyResponse,
   ReservationResponse,
 } from '@stay-flow/contracts';
@@ -60,5 +61,21 @@ export function anAvailability(unitTypes: Partial<UnitType>[]): AvailabilityResp
       totalMinor: 480_000,
       ...type,
     })),
+  };
+}
+
+export function aGuestReservation(
+  change: Partial<GuestReservationResponse> = {},
+): GuestReservationResponse {
+  return {
+    ...aReservation({
+      status: 'confirmed',
+      holdExpiresAt: null,
+      guest: { name: 'Nour El-Sayed', email: 'nour@example.com' },
+    }),
+    property: { slug: property.slug, name: property.name },
+    policy: { freeCancellationHours: 48, checkInTime: '14:00', checkOutTime: '12:00' },
+    refund: { freeUntil: '2026-12-14T12:00:00.000Z', refundMinor: 790_000, feeMinor: 0 },
+    ...change,
   };
 }
