@@ -1,0 +1,33 @@
+{
+	# Let's Encrypt sends certificate expiry warnings here.
+	email {$ACME_EMAIL}
+}
+
+# Caddy gets and renews the certificate for this domain, and redirects HTTP to HTTPS.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# The browser calls the API on the site's own origin, so the session cookie stays first-party.
+	# While a deploy restarts a container, Caddy holds new requests for up to 15 s instead of
+	# answering 502. It retries a POST only when the connection failed, so none runs twice.
+	handle /v1/* {
+		reverse_proxy api:3000 {
+			lb_try_duration 15s
+		}
+	}
+
+	handle {
+		reverse_proxy web:3001 {
+			lb_try_duration 15s
+		}
+	}
+
+	log
+}
