@@ -6,7 +6,10 @@ import { useEffect, useState } from 'react';
 import { api } from '@/api/client';
 import { formatDate, formatTime, zoneCity } from '@/lib/format';
 import { useServerNow } from '@/lib/use-server-now';
+import { Button } from '@/ui/button';
+import { Notice, type NoticeMessage } from '@/ui/notice';
 import { Skeleton } from '@/ui/skeleton';
+import { BlockDialog } from '../calendar/block-dialog';
 import { useHost } from '../host-context';
 import { hostKeys } from '../host-keys';
 import { Arrivals, Departures, InHouse } from './front-desk-lists';
@@ -26,7 +29,11 @@ export function TodayView({ initial }: TodayViewProps) {
   const { property } = useHost();
   const queryClient = useQueryClient();
   const now = useServerNow(15_000);
-  const [announcement, setAnnouncement] = useState('');
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const done = (text: string) => {
+    setNotice({ text, tone: 'done' });
+  };
+  const [blocking, setBlocking] = useState(false);
 
   const todayQuery = useQuery({
     queryKey: hostKeys.today(property.id),
@@ -78,17 +85,44 @@ export function TodayView({ initial }: TodayViewProps) {
             Today, {formatDate(today.date, 'dayMonth')}
           </h1>
         </div>
-        {todayQuery.isRefetchError && (
-          <p role="status" className="text-small text-danger">
-            Could not refresh. Showing the day as of{' '}
-            {formatTime(todayQuery.dataUpdatedAt, property.timeZone)}.
-          </p>
-        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          isDisabled={!calendarQuery.data}
+          onPress={() => {
+            setBlocking(true);
+          }}
+        >
+          Block dates
+        </Button>
       </header>
 
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
+      {todayQuery.isRefetchError && (
+        <p role="status" className="text-small text-danger">
+          Could not refresh. Showing the day as of{' '}
+          {formatTime(todayQuery.dataUpdatedAt, property.timeZone)}.
+        </p>
+      )}
+
+      <Notice
+        message={notice}
+        onDismiss={() => {
+          setNotice(null);
+        }}
+      />
+
+      {calendarQuery.data && (
+        <BlockDialog
+          isOpen={blocking}
+          onOpenChange={setBlocking}
+          rooms={calendarQuery.data.unitTypes}
+          today={today.date}
+          draft={null}
+          onBlocked={(_, message) => {
+            done(message);
+          }}
+        />
+      )}
 
       {/* Two columns from extra-large screens: the day's work, and a rail beside it. */}
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
@@ -98,8 +132,8 @@ export function TodayView({ initial }: TodayViewProps) {
           ) : (
             <Skeleton className="h-72 rounded-lg" />
           )}
-          <Arrivals today={today} property={property} onDone={setAnnouncement} />
-          <Departures today={today} property={property} onDone={setAnnouncement} />
+          <Arrivals today={today} property={property} onDone={done} />
+          <Departures today={today} property={property} onDone={done} />
         </div>
         <div className="flex min-w-0 flex-col gap-5">
           <div className="order-2 xl:order-1">

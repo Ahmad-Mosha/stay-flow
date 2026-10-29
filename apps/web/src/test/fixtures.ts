@@ -2,6 +2,7 @@ import type {
   AvailabilityResponse,
   GuestReservationResponse,
   HostPropertyResponse,
+  HostReservationDetailResponse,
   HostReservationResponse,
   PropertyResponse,
   ReservationResponse,
@@ -181,6 +182,82 @@ export const tonightCalendar: RoomCalendarResponse = {
           ],
         },
         { id: '01a1825d-fdf0-7caf-9e8d-ded549254d8d', name: '104', bars: [] },
+      ],
+    },
+  ],
+};
+
+/** Sara's booking as the reservation panel reads it: past free cancellation, arriving today. */
+export function aReservationDetail(
+  change: Partial<HostReservationDetailResponse> = {},
+): HostReservationDetailResponse {
+  return {
+    ...arriving,
+    nightlyRates: [
+      { date: '2026-10-29', rateMinor: 240_000 },
+      { date: '2026-10-30', rateMinor: 240_000 },
+      { date: '2026-10-31', rateMinor: 240_000 },
+    ],
+    policy: { freeCancellationHours: 48, checkInTime: '14:00', checkOutTime: '12:00' },
+    refund: { freeUntil: '2026-10-27T12:00:00.000Z', refundMinor: 480_000, feeMinor: 240_000 },
+    events: [
+      {
+        fromStatus: null,
+        toStatus: 'held',
+        actor: 'guest',
+        userId: null,
+        note: null,
+        occurredAt: '2026-10-17T08:16:00.000Z',
+      },
+      {
+        fromStatus: 'held',
+        toStatus: 'confirmed',
+        actor: 'guest',
+        userId: null,
+        note: null,
+        occurredAt: '2026-10-17T08:21:00.000Z',
+      },
+    ],
+    ...change,
+  };
+}
+
+/** The three weeks from 26 October: Omar leaves 102 today and Sara arrives, 104 is repainted. */
+export const weeksCalendar: RoomCalendarResponse = {
+  nights: { from: '2026-10-26', to: '2026-11-16' },
+  unitTypes: [
+    {
+      ...garden,
+      units: [
+        {
+          id: '01a1825d-fdee-7caf-9e8d-ded549254d8b',
+          name: '102',
+          bars: [
+            {
+              kind: 'stay',
+              nights: { from: '2026-10-25', to: '2026-10-29' },
+              reservation: leaving,
+            },
+            {
+              kind: 'stay',
+              nights: { from: '2026-10-29', to: '2026-11-01' },
+              reservation: arriving,
+            },
+          ],
+        },
+        { id: '01a1825d-fdef-7caf-9e8d-ded549254d8c', name: '103', bars: [] },
+        {
+          id: '01a1825d-fdf0-7caf-9e8d-ded549254d8d',
+          name: '104',
+          bars: [
+            {
+              kind: 'block',
+              id: '01a1825d-fec4-7bec-80b4-a135d7ed5d9d',
+              nights: { from: '2026-11-02', to: '2026-11-05' },
+              reason: 'Repainting',
+            },
+          ],
+        },
       ],
     },
   ],

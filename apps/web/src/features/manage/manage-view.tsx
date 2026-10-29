@@ -16,7 +16,7 @@ import { PropertyFooter, PropertyHeader } from '../booking/property-chrome';
 import { StayReceipt } from '../booking/stay-receipt';
 import { CancelDialog } from './cancel-dialog';
 import { useGuestToken } from './guest-link';
-import { RefundLines } from './refund-lines';
+import { RefundLines } from '../booking/refund-lines';
 
 export function ManageView() {
   const token = useGuestToken();

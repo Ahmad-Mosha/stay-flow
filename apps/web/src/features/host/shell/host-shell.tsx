@@ -20,6 +20,7 @@ import { api } from '@/api/client';
 import { cx } from '@/ui/cx';
 import { ChevronDownIcon, CloseIcon, MenuIcon, MoonIcon, SignOutIcon, SunIcon } from '@/ui/icons';
 import { Menu, MenuGroup, MenuItem } from '@/ui/menu';
+import { Hint } from '@/ui/tooltip';
 import { LogoMark, Wordmark } from '@/ui/wordmark';
 import { HostContext } from '../host-context';
 import { initialsOf, roleLabel } from '../roles';
@@ -68,9 +69,22 @@ export function HostShell({ user, properties, property, children }: HostShellPro
       >
         Skip to content
       </a>
-      <div className="lg:grid lg:min-h-dvh lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <div
+        className={cx(
+          'lg:grid lg:min-h-dvh',
+          current?.wide
+            ? 'lg:grid-cols-[4.5rem_minmax(0,1fr)]'
+            : 'lg:grid-cols-[15rem_minmax(0,1fr)]',
+        )}
+      >
         <div className="hidden border-r border-rule bg-ground-dim lg:block">
-          <aside className="sticky top-0 h-dvh">{sidebar}</aside>
+          <aside className="sticky top-0 h-dvh">
+            {current?.wide ? (
+              <Rail user={user} property={property} items={items} current={current} />
+            ) : (
+              sidebar
+            )}
+          </aside>
         </div>
 
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-rule bg-ground-dim px-2 sm:px-4 lg:hidden">
@@ -163,6 +177,58 @@ function Sidebar({ user, properties, property, items, current }: SidebarProps) {
   );
 }
 
+/** The sidebar as a column of icons, for pages that need the width, like the calendar. */
+function Rail({ user, property, items, current }: Omit<SidebarProps, 'properties'>) {
+  return (
+    <div className="flex h-full flex-col items-center gap-6 overflow-y-auto py-6">
+      <Hint label="Today">
+        <AriaLink
+          href={items[0]?.href ?? '/host'}
+          aria-label="Stay Flow, Today"
+          className="flex h-8 items-center rounded-sm px-1 outline-hidden data-focus-visible:outline-2 data-focus-visible:outline-action"
+        >
+          <LogoMark className="h-3.5 w-auto text-ink" />
+        </AriaLink>
+      </Hint>
+      <nav aria-label="Dashboard">
+        <ul className="flex flex-col gap-1">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = item === current;
+            return (
+              <li key={item.href}>
+                <Hint
+                  label={
+                    item.shortcut ? `${item.label} · G ${item.shortcut.toUpperCase()}` : item.label
+                  }
+                >
+                  <AriaLink
+                    href={item.href}
+                    aria-label={item.label}
+                    {...(active && { 'aria-current': 'page' })}
+                    className={cx(
+                      'flex size-11 items-center justify-center rounded-md outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action',
+                      active
+                        ? 'bg-paper text-ink shadow-[0_1px_0_var(--color-rule)]'
+                        : 'text-ink-2 data-hovered:bg-paper/60 data-hovered:text-ink',
+                    )}
+                  >
+                    <Icon />
+                  </AriaLink>
+                </Hint>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+      <div className="mt-auto flex flex-col items-center gap-2">
+        <ThemeToggle />
+        <AccountMenu user={user} role={property.role} compact />
+      </div>
+    </div>
+  );
+}
+
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   return (
@@ -238,7 +304,16 @@ function PropertySwitcher({
   );
 }
 
-function AccountMenu({ user, role }: { user: UserResponse; role: HostPropertyResponse['role'] }) {
+function AccountMenu({
+  user,
+  role,
+  compact = false,
+}: {
+  user: UserResponse;
+  role: HostPropertyResponse['role'];
+  /** Just the initials, in the rail. */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const signOut = useMutation({
@@ -254,7 +329,10 @@ function AccountMenu({ user, role }: { user: UserResponse; role: HostPropertyRes
     <MenuTrigger>
       <AriaButton
         aria-label={`Account: ${user.name}`}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md p-1.5 text-left outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:bg-paper/60"
+        className={cx(
+          'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md p-1.5 text-left outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:bg-paper/60',
+          !compact && 'flex-1',
+        )}
       >
         <span
           aria-hidden="true"
@@ -262,14 +340,16 @@ function AccountMenu({ user, role }: { user: UserResponse; role: HostPropertyRes
         >
           {initialsOf(user.name)}
         </span>
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-small font-semibold text-ink">{user.name}</span>
-          <span className="truncate text-label text-ink-3">{roleLabel(role)}</span>
-        </span>
+        {!compact && (
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-small font-semibold text-ink">{user.name}</span>
+            <span className="truncate text-label text-ink-3">{roleLabel(role)}</span>
+          </span>
+        )}
       </AriaButton>
       <Menu
         aria-label="Account"
-        placement="top start"
+        placement={compact ? 'end bottom' : 'top start'}
         onAction={(key) => {
           if (key === 'sign-out') signOut.mutate();
         }}
