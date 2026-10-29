@@ -7,8 +7,11 @@ import { seedDemoProperty } from './seed-demo-property.js';
 
 // `pnpm db:seed`: adds the demo property and its host to a migrated database.
 const config = loadConfig();
-if (config.env === 'production') {
-  throw new Error('Refusing to seed demo data into a production database.');
+// A public demo runs in production and asks for the demo data on purpose; nothing else gets it.
+if (config.env === 'production' && process.env.SEED_DEMO_DATA !== 'true') {
+  throw new Error(
+    'Refusing to seed demo data into a production database. A public demo sets SEED_DEMO_DATA=true.',
+  );
 }
 
 const db = createDatabase(config.database, {
