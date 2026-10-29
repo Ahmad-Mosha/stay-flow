@@ -2,12 +2,15 @@
 
 import type { RoomCalendarResponse, TodayResponse } from '@stay-flow/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/api/client';
 import { formatDate, formatTime, zoneCity } from '@/lib/format';
+import { routes } from '@/lib/routes';
 import { useServerNow } from '@/lib/use-server-now';
 import { Button } from '@/ui/button';
 import { Notice, type NoticeMessage } from '@/ui/notice';
+import { SearchField } from '@/ui/search-field';
 import { Skeleton } from '@/ui/skeleton';
 import { BlockDialog } from '../calendar/block-dialog';
 import { useHost } from '../host-context';
@@ -28,6 +31,7 @@ export interface TodayViewProps {
 export function TodayView({ initial }: TodayViewProps) {
   const { property } = useHost();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const now = useServerNow(15_000);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
   const done = (text: string) => {
@@ -85,16 +89,33 @@ export function TodayView({ initial }: TodayViewProps) {
             Today, {formatDate(today.date, 'dayMonth')}
           </h1>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          isDisabled={!calendarQuery.data}
-          onPress={() => {
-            setBlocking(true);
-          }}
-        >
-          Block dates
-        </Button>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <SearchField
+            label="Find a booking"
+            placeholder="Find a guest or reference"
+            shortcut="/"
+            onSubmit={(value) => {
+              const q = value.trim();
+              router.push(
+                routes.reservations(
+                  property.slug,
+                  q ? new URLSearchParams({ q }).toString() : undefined,
+                ),
+              );
+            }}
+            className="min-w-0 flex-1 sm:w-72 sm:flex-none"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            isDisabled={!calendarQuery.data}
+            onPress={() => {
+              setBlocking(true);
+            }}
+          >
+            Block dates
+          </Button>
+        </div>
       </header>
 
       {todayQuery.isRefetchError && (

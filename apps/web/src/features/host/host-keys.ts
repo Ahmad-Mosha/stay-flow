@@ -5,6 +5,8 @@ export const hostKeys = {
   calendar: (propertyId: string, from: string, to: string) =>
     ['host', propertyId, 'calendar', from, to] as const,
   unitTypes: (propertyId: string) => ['host', propertyId, 'unit-types'] as const,
+  reservations: (propertyId: string, filters: { q: string | null; status: string | null }) =>
+    ['host', propertyId, 'reservations', filters] as const,
   reservation: (propertyId: string, reservationId: string) =>
     ['host', propertyId, 'reservation', reservationId] as const,
 };
