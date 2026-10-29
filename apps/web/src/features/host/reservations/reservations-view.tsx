@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { Link, ToggleButton, ToggleButtonGroup } from 'react-aria-components';
 import { api } from '@/api/client';
-import { formatAmount, formatDate, formatDayTime, plural } from '@/lib/format';
+import { formatAmount, formatDateSpan, formatDayTime, plural } from '@/lib/format';
 import { routes } from '@/lib/routes';
 import { useServerNow } from '@/lib/use-server-now';
 import { Button } from '@/ui/button';
@@ -233,17 +233,6 @@ function roomOf(reservation: HostReservationResponse): string {
     : reservation.unitType.name;
 }
 
-/** "29 Oct – 1 Nov", with the year when the stay is not in this one. */
-function stayOf(reservation: HostReservationResponse, thisYear: string): string {
-  const { checkIn, checkOut } = reservation;
-  const from = formatDate(checkIn, 'dayShortMonth');
-  const to = formatDate(checkOut, 'dayShortMonth');
-  const [fromYear, toYear] = [checkIn.slice(0, 4), checkOut.slice(0, 4)];
-  if (fromYear === thisYear && toYear === thisYear) return `${from} – ${to}`;
-  if (fromYear === toYear) return `${from} – ${to} ${toYear}`;
-  return `${from} ${fromYear} – ${to} ${toYear}`;
-}
-
 function ReservationTable({ reservations }: { reservations: HostReservationResponse[] }) {
   const { property } = useHost();
   const thisYear = todayAt(property.timeZone, useServerNow(60_000)).slice(0, 4);
@@ -296,7 +285,9 @@ function ReservationTable({ reservations }: { reservations: HostReservationRespo
               </td>
               <td className="truncate px-3 py-3">{roomOf(reservation)}</td>
               <td className="px-3 py-3">
-                <span className="block">{stayOf(reservation, thisYear)}</span>
+                <span className="block">
+                  {formatDateSpan(reservation.checkIn, reservation.checkOut, thisYear)}
+                </span>
                 <span className="block text-label text-ink-3">
                   {plural(reservation.nights, 'night')} · {plural(reservation.guests, 'guest')}
                 </span>
@@ -332,7 +323,8 @@ function ReservationCards({ reservations }: { reservations: HostReservationRespo
               <StatusTape status={reservation.status} className="h-6 shrink-0 text-label" />
             </span>
             <span className="text-small text-ink-2">
-              {roomOf(reservation)} · {stayOf(reservation, thisYear)}
+              {roomOf(reservation)} ·{' '}
+              {formatDateSpan(reservation.checkIn, reservation.checkOut, thisYear)}
             </span>
             <span className="flex items-baseline justify-between gap-3">
               <span className="font-mono text-label tracking-[0.04em] text-ink-3">

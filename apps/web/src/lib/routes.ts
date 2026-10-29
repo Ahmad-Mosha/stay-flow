@@ -20,6 +20,8 @@ export const routes = {
     route(query ? `/host/${slug}/reservations?${query}` : `/host/${slug}/reservations`),
   reservation: (slug: string, reservationId: string) =>
     route(`/host/${slug}/reservations/${reservationId}`),
+  rates: (slug: string) => route(`/host/${slug}/rates`),
+  rooms: (slug: string) => route(`/host/${slug}/rooms`),
 };
 
 /** A page to return to after signing in: only one of the host's own, never another site. */

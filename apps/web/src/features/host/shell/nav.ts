@@ -1,7 +1,7 @@
 import type { Route } from 'next';
 import type { ComponentType } from 'react';
 import { routes } from '@/lib/routes';
-import { CalendarIcon, LedgerIcon, SunIcon } from '@/ui/icons';
+import { CalendarIcon, DoorIcon, LedgerIcon, SunIcon, TagIcon } from '@/ui/icons';
 
 export interface NavItem {
   label: string;
@@ -30,6 +30,8 @@ export function navFor(slug: string): NavItem[] {
       icon: LedgerIcon,
       shortcut: 'r',
     },
+    { label: 'Rates', href: routes.rates(slug), icon: TagIcon, shortcut: 'p' },
+    { label: 'Rooms', href: routes.rooms(slug), icon: DoorIcon, shortcut: 'o' },
   ];
 }
 
