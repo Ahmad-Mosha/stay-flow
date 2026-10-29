@@ -18,6 +18,7 @@ import { hostKeys } from '../host-keys';
 import { Arrivals, Departures, InHouse } from './front-desk-lists';
 import { MonthCard } from './month-card';
 import { roomsTonight, tonightRange } from './rooms-tonight';
+import { SetupGuide } from './setup-guide';
 import { TonightCard } from './tonight-card';
 
 /** The front desk keeps this page open all day, so it reads the day again every half minute. */
@@ -57,6 +58,8 @@ export function TodayView({ initial }: TodayViewProps) {
     refetchInterval: REFRESH_MS,
   });
   const rooms = calendarQuery.data ? roomsTonight(calendarQuery.data, today.date) : null;
+  // A property just set up has nothing to sell yet: it gets the steps to its first booking.
+  const settingUp = today.tonight.rooms === 0;
 
   // A hold that runs out frees its room: read the day again the moment that happens.
   const nextExpiry = Math.min(
@@ -105,16 +108,18 @@ export function TodayView({ initial }: TodayViewProps) {
             }}
             className="min-w-0 flex-1 sm:w-72 sm:flex-none"
           />
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={!calendarQuery.data}
-            onPress={() => {
-              setBlocking(true);
-            }}
-          >
-            Block dates
-          </Button>
+          {!settingUp && (
+            <Button
+              variant="secondary"
+              size="sm"
+              isDisabled={!calendarQuery.data}
+              onPress={() => {
+                setBlocking(true);
+              }}
+            >
+              Block dates
+            </Button>
+          )}
         </div>
       </header>
 
@@ -145,26 +150,30 @@ export function TodayView({ initial }: TodayViewProps) {
         />
       )}
 
-      {/* Two columns from extra-large screens: the day's work, and a rail beside it. */}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
-        <div className="flex min-w-0 flex-col gap-5">
-          {rooms ? (
-            <TonightCard tonight={today.tonight} rooms={rooms} now={now} />
-          ) : (
-            <Skeleton className="h-72 rounded-lg" />
-          )}
-          <Arrivals today={today} property={property} onDone={done} />
-          <Departures today={today} property={property} onDone={done} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className="order-2 xl:order-1">
-            <MonthCard month={today.thisMonth} rooms={today.tonight.rooms} />
+      {settingUp ? (
+        <SetupGuide />
+      ) : (
+        /* Two columns from extra-large screens: the day's work, and a rail beside it. */
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {rooms ? (
+              <TonightCard tonight={today.tonight} rooms={rooms} now={now} />
+            ) : (
+              <Skeleton className="h-72 rounded-lg" />
+            )}
+            <Arrivals today={today} property={property} onDone={done} />
+            <Departures today={today} property={property} onDone={done} />
           </div>
-          <div className="order-1 xl:order-2">
-            <InHouse today={today} />
+          <div className="flex min-w-0 flex-col gap-5">
+            <div className="order-2 xl:order-1">
+              <MonthCard month={today.thisMonth} rooms={today.tonight.rooms} />
+            </div>
+            <div className="order-1 xl:order-2">
+              <InHouse today={today} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

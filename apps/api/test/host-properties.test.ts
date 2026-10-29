@@ -58,6 +58,14 @@ describe('host properties', () => {
       expect(response.body).toMatchObject({ code: 'SLUG_TAKEN' });
     });
 
+    it('keeps the slugs of dashboard pages, such as new, for the dashboard', async () => {
+      const host = await createSignedInUser(db);
+
+      const response = await create(host.cookie, { slug: 'new' }).expect(400);
+
+      expect(response.body).toMatchObject({ errors: [{ pointer: '#/slug' }] });
+    });
+
     it('rejects an unknown time zone', async () => {
       const host = await createSignedInUser(db);
 

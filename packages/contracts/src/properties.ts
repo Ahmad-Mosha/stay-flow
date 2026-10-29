@@ -18,7 +18,7 @@ export const stayRulesSchema = z.object({
 
 export type StayRules = z.infer<typeof stayRulesSchema>;
 
-/** `GET /v1/properties/:slug` */
+/** A property's profile and stay rules, as every endpoint that returns one shares it. */
 export const propertyResponseSchema = z.object({
   slug: z.string(),
   name: z.string(),
@@ -32,6 +32,14 @@ export const propertyResponseSchema = z.object({
 
 export type PropertyResponse = z.infer<typeof propertyResponseSchema>;
 
+/** `GET /v1/properties/:slug`, for guests: the profile, and whether it can be booked yet. */
+export const publicPropertyResponseSchema = propertyResponseSchema.extend({
+  /** It has at least one room. A property just set up has none, so no night can be booked. */
+  acceptingBookings: z.boolean(),
+});
+
+export type PublicPropertyResponse = z.infer<typeof publicPropertyResponseSchema>;
+
 /** What a member may do at a property; see the API's access policy. */
 export const propertyRoleSchema = z.enum(['owner', 'manager', 'front_desk']);
 
@@ -39,9 +47,17 @@ export type PropertyRole = z.infer<typeof propertyRoleSchema>;
 
 const propertyNameSchema = z.string().trim().min(1).max(120);
 
+/** Slugs the dashboard's own pages use under `/host/`, so no property can take them. */
+export const reservedPropertySlugs: readonly string[] = ['new'];
+
+const propertySlugSchema = slugSchema.refine(
+  (slug) => !reservedPropertySlugs.includes(slug),
+  'This slug is reserved',
+);
+
 /** `POST /v1/host/properties`. The creator becomes its owner. */
 export const createPropertyRequestSchema = z.object({
-  slug: slugSchema,
+  slug: propertySlugSchema,
   name: propertyNameSchema,
   timeZone: timeZoneSchema,
   currency: currencySchema,

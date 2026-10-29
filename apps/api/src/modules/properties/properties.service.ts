@@ -83,6 +83,11 @@ export class PropertiesService {
     return property;
   }
 
+  /** Guests can book once the property has a room; one just set up has none. */
+  async acceptsBookings(property: Property): Promise<boolean> {
+    return this.properties.hasUnits(property.id);
+  }
+
   /** Today's date where the property is, which is what its stay rules count from. */
   today(property: Property): Temporal.PlainDate {
     return this.clock.today(property.timeZone);

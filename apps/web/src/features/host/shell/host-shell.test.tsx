@@ -88,6 +88,16 @@ describe('HostShell', () => {
     expect(router.push).toHaveBeenCalledWith('/host/nile-loft/today');
   });
 
+  it('adds another property from the switcher', async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    await user.click(screen.getByRole('button', { name: /Switch property/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Add a property' }));
+
+    expect(router.push).toHaveBeenCalledWith('/host/new', undefined);
+  });
+
   it('remembers the dark theme for the next visit', async () => {
     const user = userEvent.setup();
     renderShell();

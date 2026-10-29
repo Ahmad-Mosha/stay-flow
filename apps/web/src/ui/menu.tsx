@@ -7,8 +7,10 @@ import {
   MenuItem as AriaMenuItem,
   MenuSection,
   Popover,
+  Separator,
   type MenuItemProps as AriaMenuItemProps,
   type MenuProps as AriaMenuProps,
+  type MenuSectionProps,
   type PopoverProps,
 } from 'react-aria-components';
 import { cx } from './cx';
@@ -63,14 +65,27 @@ export function MenuItem({ children, description, ...props }: MenuItemProps) {
   );
 }
 
-/** A labelled group of items. The label is read out, but cannot be chosen. */
-export function MenuGroup({ title, children }: { title: string; children: ReactNode }) {
+interface MenuGroupProps extends Omit<MenuSectionProps<object>, 'className' | 'children'> {
+  title: string;
+  children: ReactNode;
+}
+
+/**
+ * A labelled group of items. The label is read out, but cannot be chosen. A group can pick one of
+ * its items while the rest of the menu holds actions.
+ */
+export function MenuGroup({ title, children, ...props }: MenuGroupProps) {
   return (
-    <MenuSection className="flex flex-col gap-0.5">
+    <MenuSection {...props} className="flex flex-col gap-0.5">
       <Header className="px-3 pt-1.5 pb-1 font-mono text-label text-ink-3 uppercase">
         {title}
       </Header>
       {children}
     </MenuSection>
   );
+}
+
+/** A thin rule between parts of a menu, such as a list and the action after it. */
+export function MenuSeparator() {
+  return <Separator className="mx-1.5 my-1 h-px bg-rule" />;
 }

@@ -5,12 +5,14 @@ import { useMutation } from '@tanstack/react-query';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button as AriaButton, Form } from 'react-aria-components';
+import { Form } from 'react-aria-components';
 import { api, isApiError } from '@/api/client';
-import { demoHost } from '@/lib/demo';
+import { demoHost, demoTeam } from '@/lib/demo';
+import { routes } from '@/lib/routes';
 import { Button } from '@/ui/button';
-import { EyeIcon, EyeOffIcon } from '@/ui/icons';
+import { TextLink } from '@/ui/link';
 import { TextField } from '@/ui/text-field';
+import { PasswordField } from './password-field';
 
 type Field = keyof SignInRequest;
 
@@ -37,7 +39,6 @@ function errorCopy(error: unknown): string {
 export function SignInForm({ next }: { next: Route }) {
   const router = useRouter();
   const [attempted, setAttempted] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const signIn = useMutation({
     mutationFn: (body: SignInRequest) => api('signIn', { body }),
@@ -86,26 +87,12 @@ export function SignInForm({ next }: { next: Route }) {
           isDisabled={busy}
           validate={validate('email')}
         />
-        <TextField
+        <PasswordField
           name="password"
-          type={showPassword ? 'text' : 'password'}
-          label="Password"
           autoComplete="current-password"
           isRequired
           isDisabled={busy}
           validate={validate('password')}
-          trailing={
-            <AriaButton
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              aria-pressed={showPassword}
-              onPress={() => {
-                setShowPassword((shown) => !shown);
-              }}
-              className="flex size-10 cursor-pointer items-center justify-center rounded-sm text-ink-2 outline-hidden data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:text-ink"
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </AriaButton>
-          }
         />
         {signIn.isError && (
           <p role="alert" className="text-small text-danger">
@@ -115,6 +102,9 @@ export function SignInForm({ next }: { next: Route }) {
         <Button type="submit" size="lg" isPending={busy} className="mt-1 w-full">
           {busy ? 'Signing in' : 'Sign in'}
         </Button>
+        <p className="text-center text-small text-ink-2">
+          New to Stay Flow? <TextLink href={routes.signUp()}>Create an account</TextLink>
+        </p>
       </Form>
 
       <div className="flex flex-col gap-4 rounded-lg border border-dashed border-rule-strong p-5">
@@ -141,6 +131,23 @@ export function SignInForm({ next }: { next: Route }) {
         >
           Sign in as the demo host
         </Button>
+        <p className="flex flex-wrap items-center gap-x-3 text-small text-ink-2">
+          Or try another role:
+          {demoTeam.map((member) => (
+            <Button
+              key={member.role}
+              variant="quiet"
+              size="sm"
+              className="h-8 px-0"
+              isDisabled={busy}
+              onPress={() => {
+                signIn.mutate({ email: member.email, password: demoHost.password });
+              }}
+            >
+              {member.label}
+            </Button>
+          ))}
+        </p>
       </div>
     </div>
   );
