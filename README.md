@@ -106,10 +106,11 @@ Every merge to `main` deploys itself:
 | Postgres | Not reachable from the internet. `backup.sh` keeps 7 days of `pg_dump` backups                    |
 | Mailpit  | Catches emails, reachable only through an SSH tunnel                                              |
 
-The whole stack uses under 250 MB of RAM at rest. Each container has a memory cap, and the server has 2 GB
-of swap. A cloud firewall allows only ports 22, 80 and 443, SSH accepts keys only with no root
-login, and the deploy key is restricted while the workflow checks the server's pinned host key. Rolling back is
-`./deploy.sh <older sha>`. The full runbook is in [deploy/README.md](deploy/README.md).
+The whole stack uses under 250 MB of RAM at rest. Each container has a memory cap, and the server
+has 2 GB of swap. A cloud firewall allows only ports 22, 80 and 443, SSH accepts keys only with no
+root login, and the deploy key is restricted while the workflow checks the server's pinned host key.
+Rolling back is `./deploy.sh <older sha>`. The full runbook is in
+[deploy/README.md](deploy/README.md).
 
 ## Run it locally
 
