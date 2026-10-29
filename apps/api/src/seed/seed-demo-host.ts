@@ -1,12 +1,16 @@
 import { sql } from 'kysely';
 import { hashPassword } from '../modules/identity/password.js';
 import type { Database } from '../platform/database/database.js';
-import { demoHost, demoProperty } from './demo-property.js';
+import { demoHost, demoProperty, demoTeam } from './demo-property.js';
 import type { SeedResult } from './seed-demo-property.js';
 
-/** Makes the demo host the owner of the demo property. Does nothing if they already are. */
+/**
+ * Makes the demo host the owner of the demo property, with a manager and a front desk clerk
+ * beside them. Does nothing if the owner is already there.
+ */
 export async function seedDemoHost(db: Database): Promise<SeedResult> {
   const passwordHash = await hashPassword(demoHost.password);
+  const people = [{ ...demoHost, role: 'owner' as const }, ...demoTeam];
 
   return db.transaction().execute(async (trx) => {
     const property = await trx
@@ -17,21 +21,37 @@ export async function seedDemoHost(db: Database): Promise<SeedResult> {
 
     await trx
       .insertInto('users')
-      .values({ name: demoHost.name, email: demoHost.email, passwordHash })
+      .values(people.map(({ name, email }) => ({ name, email, passwordHash })))
       .onConflict((oc) => oc.expression(sql`lower(email)`).doNothing())
       .execute();
-    const user = await trx
+    const users = await trx
       .selectFrom('users')
-      .select('id')
-      .where(sql`lower(email)`, '=', demoHost.email)
-      .executeTakeFirstOrThrow();
+      .select(['id', 'email'])
+      .where(
+        sql`lower(email)`,
+        'in',
+        people.map(({ email }) => email),
+      )
+      .execute();
+    const idOf = new Map(users.map((user) => [user.email.toLowerCase(), user.id]));
+    const userId = (email: string) => {
+      const id = idOf.get(email);
+      if (id === undefined) throw new Error(`The demo user ${email} was not saved`);
+      return id;
+    };
 
-    const member = await trx
+    const members = await trx
       .insertInto('propertyMembers')
-      .values({ propertyId: property.id, userId: user.id, role: 'owner' })
+      .values(
+        people.map(({ email, role }) => ({
+          propertyId: property.id,
+          userId: userId(email),
+          role,
+        })),
+      )
       .onConflict((oc) => oc.columns(['propertyId', 'userId']).doNothing())
-      .returning('userId')
-      .executeTakeFirst();
-    return member === undefined ? 'already-seeded' : 'seeded';
+      .returning('role')
+      .execute();
+    return members.some((member) => member.role === 'owner') ? 'seeded' : 'already-seeded';
   });
 }

@@ -93,7 +93,11 @@ function RoomForm({
         label="Room name"
         description="What the team calls it, such as 105 or Garden Suite."
         value={name}
-        onChange={setName}
+        onChange={(value) => {
+          setName(value);
+          // The error names what was typed, so it goes once the name changes.
+          save.reset();
+        }}
         maxLength={40}
         isRequired
         isDisabled={save.isPending}

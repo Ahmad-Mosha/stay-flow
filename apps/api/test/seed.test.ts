@@ -5,7 +5,7 @@ import type { Database } from '../src/platform/database/database.js';
 import { fromDateRange } from '../src/platform/database/date-range.js';
 import { nightsOf } from '../src/platform/time/date-span.js';
 import { verifyPassword } from '../src/modules/identity/password.js';
-import { demoHost } from '../src/seed/demo-property.js';
+import { demoHost, demoTeam } from '../src/seed/demo-property.js';
 import { seedDemoHost } from '../src/seed/seed-demo-host.js';
 import { seedDemoProperty } from '../src/seed/seed-demo-property.js';
 import { connectTestDatabase } from './support/fixtures.js';
@@ -50,6 +50,23 @@ describe('demo seed', () => {
 
     expect([host.propertyId, host.role]).toEqual([propertyId, 'owner']);
     await expect(verifyPassword(host.passwordHash, demoHost.password)).resolves.toBe(true);
+  });
+
+  it('puts a manager and a front desk clerk on the team too', async () => {
+    const team = await db
+      .selectFrom('propertyMembers')
+      .innerJoin('users', 'users.id', 'propertyMembers.userId')
+      .select(['users.email', 'propertyMembers.role'])
+      .where('propertyMembers.propertyId', '=', propertyId)
+      .orderBy('users.email')
+      .execute();
+
+    expect(team).toEqual(
+      [
+        { email: demoHost.email, role: 'owner' },
+        ...demoTeam.map(({ email, role }) => ({ email, role })),
+      ].sort((a, b) => a.email.localeCompare(b.email)),
+    );
   });
 
   it('creates 4 room types, 10 rooms, 18 stays and a maintenance block', async () => {

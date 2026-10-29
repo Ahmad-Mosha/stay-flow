@@ -17,7 +17,7 @@ export interface TextFieldProps extends Omit<AriaTextFieldProps, 'className' | '
   label: string;
   /** Help that stays visible below the field, read out with it by screen readers. */
   description?: string;
-  errorMessage?: string | ((validation: ValidationResult) => string);
+  errorMessage?: string | ((validation: ValidationResult) => string) | undefined;
   placeholder?: string;
   /** A few lines of free text, such as a note to the hotel. */
   multiline?: boolean;
@@ -27,7 +27,7 @@ export interface TextFieldProps extends Omit<AriaTextFieldProps, 'className' | '
 }
 
 const fieldClassName =
-  'rounded-md border border-field-edge bg-raised px-4 text-body text-ink outline-hidden transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3 data-disabled:opacity-50 data-focused:border-action data-focused:ring-1 data-focused:ring-action data-hovered:not-data-focused:border-ink-2 data-invalid:border-danger data-invalid:ring-danger';
+  'rounded-md border border-field-edge bg-raised px-4 text-body text-ink outline-hidden transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3 data-disabled:opacity-50 data-focused:border-action data-focused:ring-1 data-focused:ring-action data-hovered:not-data-focused:border-ink-2 data-invalid:border-danger data-invalid:ring-danger read-only:border-rule read-only:bg-ground-dim';
 
 export function TextField({
   label,

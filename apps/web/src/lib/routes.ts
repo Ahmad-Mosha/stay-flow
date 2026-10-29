@@ -22,6 +22,8 @@ export const routes = {
     route(`/host/${slug}/reservations/${reservationId}`),
   rates: (slug: string) => route(`/host/${slug}/rates`),
   rooms: (slug: string) => route(`/host/${slug}/rooms`),
+  team: (slug: string) => route(`/host/${slug}/team`),
+  settings: (slug: string) => route(`/host/${slug}/settings`),
 };
 
 /** A page to return to after signing in: only one of the host's own, never another site. */

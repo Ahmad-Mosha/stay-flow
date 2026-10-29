@@ -14,7 +14,7 @@ import { cx } from './cx';
 interface NumberFieldProps extends Omit<AriaNumberFieldProps, 'className' | 'children'> {
   label: string;
   description?: string;
-  errorMessage?: string;
+  errorMessage?: string | undefined;
   /** A unit after the number, such as the currency. */
   suffix?: string;
   className?: string;
@@ -32,7 +32,7 @@ export function NumberField({
   return (
     <AriaNumberField {...props} className={cx('group flex flex-col gap-2', className)}>
       <Label className="text-small font-semibold text-ink">{label}</Label>
-      <Group className="flex h-12 items-center rounded-md border border-field-edge bg-raised px-4 transition-[border-color,box-shadow] duration-150 group-data-invalid:border-danger data-disabled:opacity-50 data-focus-within:border-action data-focus-within:ring-1 data-focus-within:ring-action data-hovered:not-data-focus-within:border-ink-2">
+      <Group className="flex h-12 items-center rounded-md border border-field-edge bg-raised px-4 transition-[border-color,box-shadow] duration-150 group-data-invalid:border-danger group-data-readonly:border-rule group-data-readonly:bg-ground-dim data-disabled:opacity-50 data-focus-within:border-action data-focus-within:ring-1 data-focus-within:ring-action data-hovered:not-data-focus-within:border-ink-2">
         <Input className="numerals min-w-0 flex-1 bg-transparent text-body text-ink outline-hidden" />
         {suffix && <span className="pl-2 font-mono text-small text-ink-3">{suffix}</span>}
       </Group>
