@@ -65,6 +65,17 @@ describe('HostShell', () => {
     ]);
   });
 
+  it('names its menu buttons by the words they show, so voice control can press them', () => {
+    renderShell();
+
+    expect(
+      screen.getByRole('button', { name: /^Dar Nubia Guesthouse.*Switch property$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Account:\s*Amira Salem\s*Owner$/ }),
+    ).toBeInTheDocument();
+  });
+
   it('opens a section with G and then its letter, but not while typing', async () => {
     const user = userEvent.setup();
     renderShell();
