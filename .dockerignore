@@ -1,0 +1,13 @@
+# Only sources go into an image; every image installs and builds its own.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+.private
+**/*.log

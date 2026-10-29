@@ -1,5 +1,19 @@
-# Local development only. The API runs on the host with `pnpm dev`.
+# Two ways to run Stay Flow:
+#   docker compose up -d                        Postgres and Mailpit, for `pnpm dev` on the host.
+#   docker compose --profile full up -d --build  The whole stack, with the demo hotel, at
+#                                               http://localhost:8080.
 name: stay-flow
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  LOG_LEVEL: info
+  DATABASE_URL: postgres://stayflow:stayflow@postgres:5432/stayflow
+  SMTP_URL: smtp://mailpit:1025
+  MAIL_FROM: Stay Flow <bookings@stayflow.test>
+  WEB_URL: http://localhost:8080
+  TRUSTED_ORIGINS: http://localhost:8080
+  # Requests reach the API through the web server, which adds X-Forwarded-For.
+  TRUST_PROXY_HOPS: '1'
 
 services:
   postgres:
@@ -24,6 +38,65 @@ services:
     ports:
       - '127.0.0.1:1025:1025' # SMTP
       - '127.0.0.1:8025:8025' # Web inbox
+
+  # Runs once: applies the migrations, then adds the demo hotel if it is not there yet.
+  migrate:
+    profiles: [full]
+    image: stay-flow-api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ['sh', '-c', 'node dist/platform/database/migrate.js && node dist/seed/seed.js']
+    environment:
+      <<: *api-environment
+      SEED_DEMO_DATA: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: [full]
+    image: stay-flow-api
+    environment: *api-environment
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health/ready']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Expires holds, marks no-shows, sends the booking emails from the outbox.
+  worker:
+    profiles: [full]
+    image: stay-flow-api
+    command: ['node', '--enable-source-maps', 'dist/worker.js']
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    profiles: [full]
+    image: stay-flow-web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_URL: http://api:3000
+    environment:
+      API_URL: http://api:3000
+    ports:
+      - '127.0.0.1:8080:3001'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres-data:
