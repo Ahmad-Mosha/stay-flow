@@ -40,7 +40,7 @@ On a fresh Ubuntu 24.04 server, as root:
 
 ```sh
 # A user for deploys, with your SSH key, and 2 GB of swap.
-adduser --gecos '' deploy && usermod -aG sudo deploy
+adduser deploy && usermod -aG sudo deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
