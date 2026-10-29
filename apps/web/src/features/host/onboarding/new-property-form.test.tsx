@@ -31,7 +31,8 @@ async function pick(
 ) {
   const input = screen.getByRole('combobox', { name: field });
   await user.clear(input);
-  await user.type(input, search);
+  // Pasted in one go: the lists are long, and filtering them once per letter is slow in jsdom.
+  await user.paste(search);
   await user.click(await screen.findByRole('option', { name: option }));
 }
 
@@ -93,7 +94,20 @@ describe('NewPropertyForm', () => {
     expect(api).not.toHaveBeenCalled();
   });
 
-  it('refuses an address kept for Stay Flow, and one another property uses', async () => {
+  it('refuses an address kept for Stay Flow before sending it', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByRole('textbox', { name: 'Property name' }), 'New');
+    await user.click(screen.getByRole('button', { name: 'Create property' }));
+
+    expect(
+      screen.getByText('/stay/new is kept for Stay Flow. Try another address.'),
+    ).toBeInTheDocument();
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('says when another property already uses the address', async () => {
     const user = userEvent.setup();
     api.mockRejectedValue(new ApiError(409, 'SLUG_TAKEN', 'Another property uses this slug.'));
     renderForm();
@@ -101,16 +115,9 @@ describe('NewPropertyForm', () => {
     await fill(user);
     const address = screen.getByRole('textbox', { name: 'Booking page address' });
     await user.clear(address);
-    await user.type(address, 'new');
-    await user.click(screen.getByRole('button', { name: 'Create property' }));
-    expect(
-      screen.getByText('/stay/new is kept for Stay Flow. Try another address.'),
-    ).toBeInTheDocument();
-    expect(api).not.toHaveBeenCalled();
-
-    await user.clear(address);
     await user.type(address, 'dar-nubia');
     await user.click(screen.getByRole('button', { name: 'Create property' }));
+
     expect(
       await screen.findByText('Another property already uses /stay/dar-nubia. Try another.'),
     ).toBeInTheDocument();
