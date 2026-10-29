@@ -16,6 +16,7 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
         tone="danger"
         eyebrow="Something went wrong"
         title="This page could not load"
+        headingLevel={1}
         action={
           <Button
             onPress={() => {

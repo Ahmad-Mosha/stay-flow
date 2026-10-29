@@ -11,7 +11,7 @@ export default function NotFound() {
       <StatePanel
         eyebrow="404 · Not found"
         title="There is no page at this address"
-        headingLevel={2}
+        headingLevel={1}
         action={<ButtonLink href="/">Go to the home page</ButtonLink>}
       >
         If you followed a link to a hotel, its address may have changed. Check the link, or start

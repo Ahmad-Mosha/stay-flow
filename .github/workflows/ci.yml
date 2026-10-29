@@ -69,3 +69,31 @@ jobs:
         run: pnpm db:migrate
       - name: Check that generated database types match the schema
         run: pnpm --filter @stay-flow/api db:codegen:verify
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @stay-flow/e2e
+      # The same images and Compose file a reviewer runs, with the demo hotel seeded.
+      - name: Start the whole stack
+        run: docker compose --profile full up -d --build --wait
+      - name: Install Chromium
+        run: pnpm --filter @stay-flow/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Show the stack's logs
+        if: failure()
+        run: docker compose --profile full logs --no-color
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

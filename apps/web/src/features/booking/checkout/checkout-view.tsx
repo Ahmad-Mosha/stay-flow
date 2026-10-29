@@ -38,6 +38,7 @@ export function CheckoutView({ property, holdId }: CheckoutViewProps) {
         <StatePanel
           eyebrow="Nothing held here"
           title="This checkout is not open in this tab"
+          headingLevel={1}
           action={<ButtonLink href={routes.property(property.slug)}>Find a room</ButtonLink>}
           className="max-w-2xl"
         >
@@ -119,6 +120,7 @@ function Checkout({
           announce
           eyebrow="Hold closed"
           title="This hold is no longer open"
+          headingLevel={1}
           action={<ButtonLink href={searchHref}>Check these dates again</ButtonLink>}
         >
           If you confirmed it a moment ago, the confirmation is already in your email. Otherwise the
@@ -135,6 +137,7 @@ function Checkout({
           announce
           eyebrow="Hold ended"
           title="Your 10 minutes are up"
+          headingLevel={1}
           action={<ButtonLink href={searchHref}>Check these dates again</ButtonLink>}
         >
           The room went back on sale, and nothing was charged. It may well still be free: the same

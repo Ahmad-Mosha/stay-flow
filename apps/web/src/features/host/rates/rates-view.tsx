@@ -379,8 +379,8 @@ function SeasonChart({ unitTypes, seasons, today, active, onActive, spanOf }: Se
               style={{ left: `${offsetOf(month.start, chart)}%` }}
               className="absolute inset-y-0 flex flex-col justify-center gap-0.5 border-l border-rule pl-1.5 font-mono text-[0.625rem] leading-3 text-ink-3 uppercase"
             >
-              <span>{month.label}</span>
-              <span className="text-ink-3/80">{month.year}</span>
+              <span className="text-ink-2">{month.label}</span>
+              <span>{month.year}</span>
             </span>
           ))}
           <span

@@ -7,7 +7,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['**/dist/', '**/coverage/', '**/*.generated.ts', '**/.next/', '**/next-env.d.ts']),
+  globalIgnores([
+    '**/dist/',
+    '**/coverage/',
+    '**/*.generated.ts',
+    '**/.next/',
+    '**/next-env.d.ts',
+    'e2e/playwright-report/',
+    'e2e/test-results/',
+  ]),
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,

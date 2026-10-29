@@ -11,7 +11,8 @@ interface StatePanelProps {
   children?: ReactNode;
   /** The one next step, pinned to the bottom of the panel. */
   action?: ReactNode;
-  headingLevel?: 2 | 3;
+  /** 1 when the panel is all there is on the page, such as a 404. */
+  headingLevel?: 1 | 2 | 3;
   /** Set when the panel replaces content after a user action, so screen readers announce it. */
   announce?: boolean;
   className?: string;
@@ -40,6 +41,8 @@ const tones: Record<
   },
 };
 
+const headings = { 1: 'h1', 2: 'h2', 3: 'h3' } as const;
+
 /** Empty, error and success states share one shape: what happened, what it means, what to do next. */
 export function StatePanel({
   tone = 'neutral',
@@ -51,7 +54,7 @@ export function StatePanel({
   announce = false,
   className,
 }: StatePanelProps) {
-  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  const Heading = headings[headingLevel];
   const { className: toneClassName, icon, role } = tones[tone];
   return (
     <div

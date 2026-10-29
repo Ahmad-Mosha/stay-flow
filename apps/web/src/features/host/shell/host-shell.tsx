@@ -292,10 +292,7 @@ function PropertySwitcher({
   const router = useRouter();
   return (
     <MenuTrigger>
-      <AriaButton
-        aria-label={`Property: ${property.name}. Switch property`}
-        className="flex min-h-13 w-full cursor-pointer items-center gap-2.5 rounded-md border border-rule-strong bg-paper px-3 py-2 text-left outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:border-field-edge"
-      >
+      <AriaButton className="flex min-h-13 w-full cursor-pointer items-center gap-2.5 rounded-md border border-rule-strong bg-paper px-3 py-2 text-left outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:border-field-edge">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-small font-semibold text-ink">{property.name}</span>
           <span className="truncate font-mono text-[0.6875rem] leading-4 text-ink-3 uppercase">
@@ -303,6 +300,7 @@ function PropertySwitcher({
           </span>
         </span>
         <ChevronDownIcon className="size-4 text-ink-2" />
+        <span className="sr-only">Switch property</span>
       </AriaButton>
       <Menu aria-label="Your properties">
         <MenuGroup
@@ -351,24 +349,22 @@ function AccountMenu({
   return (
     <MenuTrigger>
       <AriaButton
-        aria-label={`Account: ${user.name}`}
         className={cx(
           'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md p-1.5 text-left outline-hidden transition-colors data-focus-visible:outline-2 data-focus-visible:outline-action data-hovered:bg-paper/60',
           !compact && 'flex-1',
         )}
       >
+        {/* The initials come from CSS to keep them out of the label: voice control users say the name. */}
         <span
           aria-hidden="true"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-tape-stay text-label font-semibold text-ink"
-        >
-          {initialsOf(user.name)}
+          data-initials={initialsOf(user.name)}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-tape-stay text-label font-semibold text-ink before:content-[attr(data-initials)]"
+        />
+        <span className={compact ? 'sr-only' : 'flex min-w-0 flex-col'}>
+          <span className="sr-only">Account: </span>
+          <span className="truncate text-small font-semibold text-ink">{user.name}</span>
+          <span className="truncate text-label text-ink-3">{roleLabel(role)}</span>
         </span>
-        {!compact && (
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-small font-semibold text-ink">{user.name}</span>
-            <span className="truncate text-label text-ink-3">{roleLabel(role)}</span>
-          </span>
-        )}
       </AriaButton>
       <Menu
         aria-label="Account"

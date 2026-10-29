@@ -27,6 +27,7 @@ export function ManageView() {
         <StatePanel
           eyebrow="Manage a booking"
           title="Open the link from your confirmation email"
+          headingLevel={1}
           action={<ButtonLink href="/">Go to the home page</ButtonLink>}
         >
           Every confirmation email has a private link to view or cancel the booking. Open it on this
@@ -88,6 +89,7 @@ function Booking({ token }: { token: string }) {
           tone={expired ? 'neutral' : 'danger'}
           eyebrow={expired ? 'Link not valid' : 'Something went wrong'}
           title={expired ? 'This booking link no longer works' : 'We could not open your booking'}
+          headingLevel={1}
           action={
             expired ? undefined : <Button onPress={() => void booking.refetch()}>Try again</Button>
           }
