@@ -1,25 +1,48 @@
 import type { ReservationStatus } from '../platform/database/database.generated.js';
 
+export interface DemoPropertySettings {
+  readonly slug: string;
+  readonly name: string;
+  readonly timeZone: string;
+  readonly currency: string;
+  readonly checkInTime: string;
+  readonly checkOutTime: string;
+  readonly minNights: number;
+  readonly maxNights: number;
+  readonly bookingWindowDays: number;
+  readonly freeCancellationHours: number;
+}
+
+/** A yearly season: every room type costs its season rate on these nights. */
+export interface DemoSeason {
+  readonly label: string;
+  readonly month: number;
+  readonly day: number;
+  readonly nights: number;
+}
+
 export interface DemoUnitType {
   readonly slug: string;
   readonly name: string;
   readonly description: string;
   readonly maxGuests: number;
   readonly baseRateMinor: number;
-  readonly holidayRateMinor: number;
+  readonly seasonRateMinor: number;
   readonly units: readonly string[];
 }
 
 export interface DemoStay {
   readonly reference: string;
   readonly unit: string;
-  /** First night, in days from today, or from the start of the winter holidays. */
+  /** First night, in days from today, or from the first night of the hotel's season. */
   readonly from: number;
-  readonly anchor?: 'holidays';
+  readonly anchor?: 'season';
   readonly nights: number;
   readonly status: ReservationStatus;
   readonly guestName: string;
   readonly guests: number;
+  /** How long before arrival the guest booked. Without it, 12 days, or two days before today. */
+  readonly bookedDaysAhead?: number;
 }
 
 export interface DemoBlock {
@@ -29,7 +52,23 @@ export interface DemoBlock {
   readonly reason: string;
 }
 
-export const demoProperty = {
+/** Made-up stays fill each room from `fromDay` to `toDay`, in days from today. */
+export interface DemoHistory {
+  readonly fromDay: number;
+  readonly toDay: number;
+}
+
+export interface DemoHotel {
+  readonly property: DemoPropertySettings;
+  readonly season: DemoSeason;
+  readonly unitTypes: readonly DemoUnitType[];
+  /** Stays and blocks written out one by one, for the screens a visitor sees first. */
+  readonly stays: readonly DemoStay[];
+  readonly blocks: readonly DemoBlock[];
+  readonly history: DemoHistory;
+}
+
+export const demoProperty: DemoPropertySettings = {
   slug: 'dar-nubia',
   name: 'Dar Nubia Guesthouse',
   timeZone: 'Africa/Cairo',
@@ -40,7 +79,7 @@ export const demoProperty = {
   maxNights: 21,
   bookingWindowDays: 365,
   freeCancellationHours: 48,
-} as const;
+};
 
 /** The owner you sign in as to try the host dashboard. Demo data only, never a real account. */
 export const demoHost = {
@@ -56,7 +95,12 @@ export const demoTeam = [
 ] as const;
 
 /** Holiday rates cover the nights of 18 December to 4 January. */
-export const holidaySeason = { label: 'Winter holidays', month: 12, day: 18, nights: 18 } as const;
+export const holidaySeason: DemoSeason = {
+  label: 'Winter holidays',
+  month: 12,
+  day: 18,
+  nights: 18,
+};
 
 export const demoUnitTypes: readonly DemoUnitType[] = [
   {
@@ -65,7 +109,7 @@ export const demoUnitTypes: readonly DemoUnitType[] = [
     description: 'A quiet double room opening onto the palm garden.',
     maxGuests: 2,
     baseRateMinor: 240_000,
-    holidayRateMinor: 310_000,
+    seasonRateMinor: 310_000,
     units: ['101', '102', '103', '104'],
   },
   {
@@ -74,7 +118,7 @@ export const demoUnitTypes: readonly DemoUnitType[] = [
     description: 'A double room with a balcony over the Nile and Elephantine Island.',
     maxGuests: 2,
     baseRateMinor: 360_000,
-    holidayRateMinor: 470_000,
+    seasonRateMinor: 470_000,
     units: ['201', '202', '203'],
   },
   {
@@ -83,7 +127,7 @@ export const demoUnitTypes: readonly DemoUnitType[] = [
     description: 'Two connected rooms under a Nubian dome, for up to four guests.',
     maxGuests: 4,
     baseRateMinor: 520_000,
-    holidayRateMinor: 680_000,
+    seasonRateMinor: 680_000,
     units: ['301', '302'],
   },
   {
@@ -92,7 +136,7 @@ export const demoUnitTypes: readonly DemoUnitType[] = [
     description: 'A studio on the roof terrace with views of the desert hills.',
     maxGuests: 2,
     baseRateMinor: 420_000,
-    holidayRateMinor: 550_000,
+    seasonRateMinor: 550_000,
     units: ['401'],
   },
 ];
@@ -111,7 +155,7 @@ export const demoStays: readonly DemoStay[] = [
   { reference: 'K4B9S2WN', unit: '201', from: -4, nights: 5, status: 'checked_in', guestName: 'Hannah Weber', guests: 2 },
   { reference: 'M8D5G7QT', unit: '201', from: 1, nights: 6, status: 'confirmed', guestName: 'Karim Mansour', guests: 2 },
   { reference: 'N3X6H4RF', unit: '202', from: 0, nights: 3, status: 'confirmed', guestName: 'Elena Rossi', guests: 2 },
-  { reference: 'P9C2J8YK', unit: '203', from: -2, anchor: 'holidays', nights: 5, status: 'confirmed', guestName: 'Chen Wei', guests: 2 },
+  { reference: 'P9C2J8YK', unit: '203', from: -2, anchor: 'season', nights: 5, status: 'confirmed', guestName: 'Chen Wei', guests: 2 },
   { reference: 'Q5E7T3MB', unit: '203', from: 4, nights: 2, status: 'expired', guestName: 'Ahmed Samir', guests: 2 },
   { reference: 'R2V9N6GD', unit: '301', from: 6, nights: 4, status: 'confirmed', guestName: 'Hossam Ibrahim', guests: 4 },
   { reference: 'S6A4W8ZP', unit: '302', from: -8, nights: 3, status: 'checked_out', guestName: 'Fatma Ali', guests: 3 },
@@ -122,3 +166,13 @@ export const demoStays: readonly DemoStay[] = [
 export const demoBlocks: readonly DemoBlock[] = [
   { unit: '302', from: 14, nights: 4, reason: 'Bathroom renovation' },
 ];
+
+export const darNubia: DemoHotel = {
+  property: demoProperty,
+  season: holidaySeason,
+  unitTypes: demoUnitTypes,
+  stays: demoStays,
+  blocks: demoBlocks,
+  // Six months of past stays, up to the ones written out above.
+  history: { fromDay: -180, toDay: -9 },
+};
