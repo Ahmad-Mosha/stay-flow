@@ -2,13 +2,16 @@ import { sql } from 'kysely';
 import { hashPassword } from '../modules/identity/password.js';
 import type { Database } from '../platform/database/database.js';
 import { demoHost, demoProperty, demoTeam } from './demo-property.js';
-import type { SeedResult } from './seed-demo-property.js';
+import type { SeedResult } from './seed-hotel.js';
 
 /**
- * Makes the demo host the owner of the demo property, with a manager and a front desk clerk
- * beside them. Does nothing if the owner is already there.
+ * Makes the demo host the owner of a demo hotel, Dar Nubia unless `slug` names another, with a
+ * manager and a front desk clerk beside them. Does nothing if the owner is already there.
  */
-export async function seedDemoHost(db: Database): Promise<SeedResult> {
+export async function seedDemoHost(
+  db: Database,
+  slug: string = demoProperty.slug,
+): Promise<SeedResult> {
   const passwordHash = await hashPassword(demoHost.password);
   const people = [{ ...demoHost, role: 'owner' as const }, ...demoTeam];
 
@@ -16,7 +19,7 @@ export async function seedDemoHost(db: Database): Promise<SeedResult> {
     const property = await trx
       .selectFrom('properties')
       .select('id')
-      .where('slug', '=', demoProperty.slug)
+      .where('slug', '=', slug)
       .executeTakeFirstOrThrow();
 
     await trx

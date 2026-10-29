@@ -92,7 +92,7 @@ The deploy job is skipped until `DEPLOY_HOST` is set. The first image push creat
 GHCR. If they are private, make both public (**Package settings → Change visibility**), so the
 server can pull them without a token. Then run **Actions → Deploy → Run workflow**.
 
-For the demo hotel and its host accounts, once:
+For the demo hotels and their host accounts (running it again adds only what is missing):
 
 ```sh
 cd /opt/stay-flow
