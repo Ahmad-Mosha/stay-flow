@@ -16,12 +16,18 @@ export interface RequestOptions {
   bearer?: string;
   /** Lets the request finish after the page unloads, as when releasing a hold on the way out. */
   keepalive?: boolean;
+  /** The browser's cookies, forwarded when a server component calls the API on its behalf. */
+  cookie?: string;
 }
 
 export type ApiInput<N extends EndpointName> = ParamsOf<Endpoints[N]> &
   QueryOf<Endpoints[N]> &
   BodyOf<Endpoints[N]> &
   RequestOptions;
+
+/** The input is optional only for endpoints with no params, query or body. */
+export type ApiArgs<N extends EndpointName> =
+  Partial<ApiInput<N>> extends ApiInput<N> ? [input?: ApiInput<N>] : [input: ApiInput<N>];
 
 export type ApiResponse<N extends EndpointName> = Endpoints[N] extends { response: z.ZodType }
   ? z.output<Endpoints[N]['response']>
@@ -66,7 +72,8 @@ export function isApiError(error: unknown, ...codes: string[]): error is ApiErro
 }
 
 // The browser calls the API through the web app's own origin (see next.config.ts), so the
-// session cookie stays first-party. Server components call it directly.
+// session cookie stays first-party and fetch sends it by default. Server components call the
+// API directly and pass the cookie in `cookie`.
 function baseUrl(): string {
   if (typeof window !== 'undefined') return window.location.origin;
   return process.env.API_URL ?? 'http://localhost:3000';
@@ -98,13 +105,11 @@ function searchFor(query: Record<string, QueryValue> | undefined): string {
  */
 export async function api<N extends EndpointName>(
   name: N,
-  // The input is optional only for endpoints with no params, query or body.
-  ...[input]: Partial<ApiInput<N>> extends ApiInput<N>
-    ? [input?: ApiInput<N>]
-    : [input: ApiInput<N>]
+  ...[input]: ApiArgs<N>
 ): Promise<ApiResponse<N>> {
   const endpoint: Endpoint = endpoints[name];
-  const { params, query, body, signal, idempotencyKey, bearer, keepalive } = (input ?? {}) as {
+  const { params, query, body, signal, idempotencyKey, bearer, keepalive, cookie } = (input ??
+    {}) as {
     params?: Record<string, string>;
     query?: Record<string, QueryValue>;
     body?: unknown;
@@ -114,12 +119,12 @@ export async function api<N extends EndpointName>(
   if (body !== undefined) headers.set('Content-Type', 'application/json');
   if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey);
   if (bearer) headers.set('Authorization', `Bearer ${bearer}`);
+  if (cookie) headers.set('Cookie', cookie);
 
   const response = await fetch(`${baseUrl()}${pathFor(endpoint.path, params)}${searchFor(query)}`, {
     method: endpoint.method.toUpperCase(),
     headers,
     body: body === undefined ? null : JSON.stringify(body),
-    credentials: 'same-origin',
     cache: 'no-store',
     ...(signal && { signal }),
     ...(keepalive && { keepalive }),

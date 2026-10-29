@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import {
   FieldError,
   Input,
@@ -20,6 +21,8 @@ export interface TextFieldProps extends Omit<AriaTextFieldProps, 'className' | '
   placeholder?: string;
   /** A few lines of free text, such as a note to the hotel. */
   multiline?: boolean;
+  /** A small button inside the field, at its end, such as one that shows a password. */
+  trailing?: ReactNode;
   className?: string;
 }
 
@@ -32,6 +35,7 @@ export function TextField({
   errorMessage,
   placeholder,
   multiline = false,
+  trailing,
   className,
   ...props
 }: TextFieldProps) {
@@ -41,6 +45,11 @@ export function TextField({
       <Label className="text-small font-semibold text-ink">{label}</Label>
       {multiline ? (
         <TextArea {...placeholderProps} rows={3} className={cx(fieldClassName, 'resize-y py-3')} />
+      ) : trailing ? (
+        <div className="relative">
+          <Input {...placeholderProps} className={cx(fieldClassName, 'h-12 w-full pr-14')} />
+          <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>
+        </div>
       ) : (
         <Input {...placeholderProps} className={cx(fieldClassName, 'h-12')} />
       )}

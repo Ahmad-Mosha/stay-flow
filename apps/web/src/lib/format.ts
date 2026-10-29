@@ -19,8 +19,10 @@ const formatters = {
     timeZone: 'UTC',
   }),
   weekday: new DateFormatter(locale, { weekday: 'short', timeZone: 'UTC' }),
+  weekdayLong: new DateFormatter(locale, { weekday: 'long', timeZone: 'UTC' }),
   dayShortMonth: new DateFormatter(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }),
   monthYear: new DateFormatter(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+  month: new DateFormatter(locale, { month: 'long', timeZone: 'UTC' }),
 };
 
 export type DateStyle = keyof typeof formatters;
@@ -98,8 +100,12 @@ export function formatDateTime(instant: string | number | Date, timeZone: string
   }).format(new Date(instant));
 }
 
+/** "Cairo", from `Africa/Cairo`. */
+export function zoneCity(timeZone: string): string {
+  return (timeZone.split('/').at(-1) ?? timeZone).replaceAll('_', ' ');
+}
+
 /** "Cairo time", from `Africa/Cairo`. */
 export function zoneLabel(timeZone: string): string {
-  const city = timeZone.split('/').at(-1) ?? timeZone;
-  return `${city.replaceAll('_', ' ')} time`;
+  return `${zoneCity(timeZone)} time`;
 }

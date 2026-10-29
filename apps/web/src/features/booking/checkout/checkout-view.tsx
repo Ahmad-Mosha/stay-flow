@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { api, isApiError } from '@/api/client';
 import { routes } from '@/lib/routes';
+import { useServerNow } from '@/lib/use-server-now';
 import { Button } from '@/ui/button';
 import { ButtonLink } from '@/ui/link';
 import { Skeleton } from '@/ui/skeleton';
@@ -20,7 +21,6 @@ import { StayReceipt } from '../stay-receipt';
 import { BookingSteps } from './booking-steps';
 import { CancellationTerms } from './cancellation-terms';
 import { ConfirmForm } from './confirm-form';
-import { useServerNow } from './hold-timer';
 
 interface CheckoutViewProps {
   property: PropertyResponse;
