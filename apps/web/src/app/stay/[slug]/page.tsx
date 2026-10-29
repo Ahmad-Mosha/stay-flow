@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { BookingSearch } from '@/features/booking/booking-search';
 import { PropertyFooter, PropertyHeader } from '@/features/booking/property-chrome';
 import { plural } from '@/lib/format';
+import { TextLink } from '@/ui/link';
 import { getProperty } from './property';
 
 export async function generateMetadata({ params }: PageProps<'/stay/[slug]'>): Promise<Metadata> {
@@ -30,7 +31,14 @@ export default async function PropertyPage({ params }: PageProps<'/stay/[slug]'>
   return (
     <div className="flex min-h-dvh flex-col">
       <PropertyHeader property={property}>
-        <span className="font-mono text-label text-ink-2">Prices in {property.currency}</span>
+        <div className="flex items-center gap-5">
+          <span className="hidden font-mono text-label text-ink-2 sm:inline">
+            Prices in {property.currency}
+          </span>
+          <TextLink href="/manage" className="text-small">
+            Manage a booking
+          </TextLink>
+        </div>
       </PropertyHeader>
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 px-4 pt-10 pb-16 sm:gap-12 sm:px-8 sm:pt-16 sm:pb-20">

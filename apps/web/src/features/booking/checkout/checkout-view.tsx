@@ -16,10 +16,11 @@ import { Skeleton } from '@/ui/skeleton';
 import { StatePanel } from '@/ui/state-panel';
 import { loadHold, updateHold, useStoredHold, type StoredHold } from '../hold-store';
 import { staySearchQuery } from '../stay-search';
+import { StayReceipt } from '../stay-receipt';
 import { BookingSteps } from './booking-steps';
+import { CancellationTerms } from './cancellation-terms';
 import { ConfirmForm } from './confirm-form';
 import { useServerNow } from './hold-timer';
-import { StaySummary } from './stay-summary';
 
 interface CheckoutViewProps {
   property: PropertyResponse;
@@ -87,12 +88,21 @@ function Checkout({
     },
   });
 
+  const receipt = (withTerms: boolean) => (
+    <StayReceipt
+      propertyName={property.name}
+      reservation={reservation}
+      checkInTime={property.checkInTime}
+      checkOutTime={property.checkOutTime}
+      footer={
+        withTerms && <CancellationTerms property={property} reservation={reservation} now={now} />
+      }
+    />
+  );
+
   if (reservation.status === 'confirmed') {
     return (
-      <Layout
-        steps="confirmed"
-        summary={<StaySummary property={property} reservation={reservation} now={now} />}
-      >
+      <Layout steps="confirmed" summary={receipt(true)}>
         <Confirmed property={property} reservation={reservation} />
       </Layout>
     );
@@ -101,14 +111,10 @@ function Checkout({
   const expiresAt = reservation.holdExpiresAt ? Date.parse(reservation.holdExpiresAt) : 0;
   // The server decides: a press sent in the last second still counts, so wait for its answer.
   const timedOut = now >= expiresAt && !confirm.isPending;
-  const summary = <StaySummary property={property} reservation={reservation} now={now} />;
-  const endedSummary = (
-    <StaySummary property={property} reservation={reservation} now={now} showTerms={false} />
-  );
 
   if (ended === 'closed') {
     return (
-      <Layout steps={null} summary={endedSummary}>
+      <Layout steps={null} summary={receipt(false)}>
         <StatePanel
           announce
           eyebrow="Hold closed"
@@ -124,7 +130,7 @@ function Checkout({
 
   if (ended === 'expired' || timedOut) {
     return (
-      <Layout steps={null} summary={endedSummary}>
+      <Layout steps={null} summary={receipt(false)}>
         <StatePanel
           announce
           eyebrow="Hold ended"
@@ -141,7 +147,7 @@ function Checkout({
   return (
     <Layout
       steps="details"
-      summary={summary}
+      summary={receipt(true)}
       heading={
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
           <h1 className="font-display text-[2.125rem] leading-10 font-normal tracking-[-0.015em] sm:text-title">
