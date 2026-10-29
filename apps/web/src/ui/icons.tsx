@@ -140,3 +140,29 @@ export function AlertIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16 16l4.5 4.5" />
+    </Icon>
+  );
+}
+
+export function LedgerIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4.5" y="3.5" width="15" height="17" rx="1.5" />
+      <path d="M8.5 8h7M8.5 12h7M8.5 16h4" />
+    </Icon>
+  );
+}
+
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </Icon>
+  );
+}

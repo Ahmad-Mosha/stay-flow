@@ -35,17 +35,27 @@ import { HostCancelDialog } from './host-cancel-dialog';
 
 interface ReservationDetailProps {
   reservationId: string;
+  /** Read by the server, on the booking's own page. */
+  initial?: HostReservationDetailResponse;
+  /** 1 on the booking's own page, 2 in the calendar's panel. */
+  headingLevel?: 1 | 2;
   /** Shown as a close button, in the calendar's side panel. */
   onClose?: () => void;
 }
 
 /** One reservation as the front desk sees it: the stay, what to do next, and its history. */
-export function ReservationDetail({ reservationId, onClose }: ReservationDetailProps) {
+export function ReservationDetail({
+  reservationId,
+  initial,
+  headingLevel = 2,
+  onClose,
+}: ReservationDetailProps) {
   const { property } = useHost();
   const detail = useQuery({
     queryKey: hostKeys.reservation(property.id, reservationId),
     queryFn: ({ signal }) =>
       api('getReservation', { params: { propertyId: property.id, reservationId }, signal }),
+    ...(initial && { initialData: initial }),
   });
 
   if (detail.isError) {
@@ -67,7 +77,14 @@ export function ReservationDetail({ reservationId, onClose }: ReservationDetailP
     );
   }
   if (!detail.data) return <DetailSkeleton />;
-  return <Detail reservation={detail.data} property={property} onClose={onClose} />;
+  return (
+    <Detail
+      reservation={detail.data}
+      property={property}
+      headingLevel={headingLevel}
+      onClose={onClose}
+    />
+  );
 }
 
 function DetailSkeleton() {
@@ -84,10 +101,12 @@ function DetailSkeleton() {
 interface DetailProps {
   reservation: HostReservationDetailResponse;
   property: HostPropertyResponse;
+  headingLevel: 1 | 2;
   onClose: (() => void) | undefined;
 }
 
-function Detail({ reservation, property, onClose }: DetailProps) {
+function Detail({ reservation, property, headingLevel, onClose }: DetailProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   const now = useServerNow(15_000);
   const today = todayAt(property.timeZone, now);
   const [announcement, setAnnouncement] = useState('');
@@ -113,12 +132,12 @@ function Detail({ reservation, property, onClose }: DetailProps) {
       </div>
 
       <div className="flex flex-col gap-2.5">
-        <h2
+        <Heading
           id="reservation-guest"
           className="font-display text-[2rem] leading-[1.05] font-normal tracking-[-0.01em] text-balance"
         >
           {reservation.guest?.name ?? 'Held on the booking page'}
-        </h2>
+        </Heading>
         <div className="flex flex-wrap gap-2">
           <StatusTape status={reservation.status} className="h-6.5 text-label" />
           <DueChip reservation={reservation} today={today} now={now} timeZone={property.timeZone} />
@@ -172,7 +191,12 @@ function Detail({ reservation, property, onClose }: DetailProps) {
         onDone={setAnnouncement}
       />
 
-      <History reservation={reservation} today={today} timeZone={property.timeZone} />
+      <History
+        reservation={reservation}
+        today={today}
+        timeZone={property.timeZone}
+        headingLevel={headingLevel}
+      />
     </article>
   );
 }
@@ -424,21 +448,24 @@ function History({
   reservation,
   today,
   timeZone,
+  headingLevel,
 }: {
   reservation: HostReservationDetailResponse;
   today: string;
   timeZone: string;
+  headingLevel: 1 | 2;
 }) {
   const { user } = useHost();
   const next = nextStep(reservation, today, timeZone);
+  const Heading = headingLevel === 1 ? 'h2' : 'h3';
   return (
     <section
       aria-labelledby="history-title"
       className="flex flex-col border-t-[1.5px] border-dashed border-rule pt-4"
     >
-      <h3 id="history-title" className="pb-3 text-small font-semibold">
+      <Heading id="history-title" className="pb-3 text-small font-semibold">
         History
-      </h3>
+      </Heading>
       <ol className="flex flex-col font-mono text-label">
         {reservation.events.map((event, index) => {
           const last = index === reservation.events.length - 1 && !next;
