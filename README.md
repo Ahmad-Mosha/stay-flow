@@ -74,6 +74,17 @@ The API is a modular monolith: `identity`, `access`, `properties`, `inventory`, 
 `frontdesk`, `guest-access` and `notifications`, with shared pieces in `platform`. The API and the
 worker are one image started with different commands, and Postgres is the only shared state.
 
+## Design decisions
+
+| Decision                                              | Why                                                                                                               | Cost                                                             |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Exclusion constraint instead of `SELECT … FOR UPDATE` | The rule "a room can't be taken twice on the same night" lives in the database, so no code path can forget it     | Needs the `btree_gist` extension and a row per occupied stay     |
+| Transactional outbox for emails                       | The booking and its email event commit together, so an email is never lost or sent for a booking that rolled back | A separate worker process and a little delay before each email   |
+| Idempotency keys on holds and confirms                | A retry or a double click returns the first result instead of creating a second hold                              | Stored keys that housekeeping has to clean up                    |
+| Kysely instead of an ORM                              | Range types, exclusion errors and `SKIP LOCKED` are plain SQL, and Kysely keeps that SQL typed                    | More hand-written queries                                        |
+| Rate limits and sessions in Postgres, no Redis        | One server with 1 GB of RAM; Postgres is already the only shared state                                            | Each rate-limit check is a database write                        |
+| Modular monolith, one image for API and worker        | Clear module boundaries without the cost of running several services                                              | Modules share one database, so boundaries are kept by convention |
+
 ## Tests
 
 | Suite      | Tool                    | Tests | What it covers                                           |
@@ -148,9 +159,7 @@ deploy/               Production Compose, Caddy, deploy and backup scripts
 
 ## How it was built
 
-I led this project, defined the product requirements and engineering standards, and reviewed and
-approved the architecture and design decisions. I also set up and operate the production server.
-
-- **Backend:** I built the backend with assistance from AI coding tools.
-- **Frontend:** The frontend was built entirely by AI coding tools. My role was to lead the work,
-  review the results, and approve architectural and design decisions.
+I designed this system and own its backend. I wrote the requirements, chose the architecture
+(database-enforced booking, transactional outbox, idempotent APIs) and reviewed every change. I used
+AI coding tools heavily: for parts of the backend, and for all of the frontend. I set up and run the
+production server myself.
