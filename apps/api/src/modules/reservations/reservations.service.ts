@@ -41,8 +41,12 @@ export class ReservationsService {
     hold: PlaceHold,
     idempotencyKey: string,
   ): Promise<IdempotentResult<ReservationResponse>> {
+    // A hold that ran out keeps its room until it is released: release the ones in the way.
+    await this.releaseDueHolds(hold.stay, async (trx) => {
+      const property = await this.properties.getBySlug(slug, trx);
+      return (await this.inventory.getUnitType(trx, property.id, hold.unitType)).id;
+    });
     const request = { scope: 'place-hold', key: idempotencyKey, payload: { slug, ...hold } };
-    let expired = 0;
     const result = await this.idempotency.run(request, async (trx) => {
       const property = await this.properties.getBySlug(slug, trx);
       this.properties.assertStayAllowed(property, hold.stay);
@@ -54,9 +58,6 @@ export class ReservationsService {
         );
       }
       const price = await this.inventory.quote(trx, property.id, unitType, hold.stay);
-
-      // An expired hold keeps its room until it is released, so release the ones in the way.
-      expired = await this.clearDueHolds(trx, unitType.id, hold.stay);
       const reservation = await this.reservations.insertHold(trx, {
         propertyId: property.id,
         unitTypeId: unitType.id,
@@ -78,7 +79,9 @@ export class ReservationsService {
       });
       return toReservationResponse(reservation, unitType);
     });
-    this.metrics.holdsExpired.inc(expired);
+    if (!result.replayed) {
+      this.metrics.holdsPlaced.inc();
+    }
     return result;
   }
 
@@ -93,7 +96,7 @@ export class ReservationsService {
       key: idempotencyKey,
       payload: { id, ...guest },
     };
-    return this.idempotency.run(request, async (trx) => {
+    const result = await this.idempotency.run(request, async (trx) => {
       if (!(await this.reservations.confirm(trx, id, guest))) {
         const { status } = await this.getById(trx, id);
         throw status === 'held' || status === 'expired'
@@ -105,20 +108,28 @@ export class ReservationsService {
       const unitType = await this.inventory.getUnitTypeById(trx, reservation.unitTypeId);
       return toReservationResponse(reservation, unitType);
     });
+    if (!result.replayed) {
+      this.metrics.reservationStatusChanges.inc({ status: 'confirmed', actor: 'guest' });
+    }
+    return result;
   }
 
   /** Ends a hold early and frees its room. Releasing a hold that already ended does nothing. */
   async release(id: string): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
+    const released = await this.db.transaction().execute(async (trx) => {
       if (await this.reservations.release(trx, id)) {
         await this.inventory.releaseUnits(trx, [id]);
-        return;
+        return true;
       }
       const { status } = await this.getById(trx, id);
       if (status !== 'released' && status !== 'expired') {
         throw notHeld(status);
       }
+      return false;
     });
+    if (released) {
+      this.metrics.reservationStatusChanges.inc({ status: 'released', actor: 'guest' });
+    }
   }
 
   /** Expires up to `limit` due holds, oldest first, and frees their rooms. Returns how many. */
@@ -129,13 +140,21 @@ export class ReservationsService {
   }
 
   /**
-   * Expires the due holds of a room type that overlap `nights`, so their rooms are free to take.
-   * Runs in the caller's transaction, and returns how many it expired for the caller to count in
-   * Metrics.holdsExpired once that commits.
+   * Expires the due holds of a room type that overlap `nights`, so their rooms are free to take;
+   * `unitTypeOf` finds the room type. It commits on its own, before the caller locks a room:
+   * releasing a room and then locking one in a single transaction can deadlock with a writer that
+   * locked that room first and is waiting for the release.
    */
-  async clearDueHolds(trx: Transaction, unitTypeId: string, nights: DateSpan): Promise<number> {
-    const expired = await this.expire(trx, { unitTypeId, overlapping: nights });
-    return expired.length;
+  async releaseDueHolds(
+    nights: DateSpan,
+    unitTypeOf: (trx: Transaction) => Promise<string>,
+  ): Promise<void> {
+    const expired = await this.db
+      .transaction()
+      .execute(async (trx) =>
+        this.expire(trx, { unitTypeId: await unitTypeOf(trx), overlapping: nights }),
+      );
+    this.metrics.holdsExpired.inc(expired.length);
   }
 
   private async expire(trx: Transaction, holds: DueHolds): Promise<string[]> {

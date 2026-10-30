@@ -1,0 +1,169 @@
+# Unit tests for the rules: promtool test rules tests/alerts.test.yml (run from the prometheus/
+# folder). Each test feeds made-up series and checks which alerts fire, and when.
+rule_files:
+  - ../rules/recording.yml
+  - ../rules/alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: the API down for 2 minutes is critical, an exporter down for 5 is a warning
+    interval: 15s
+    input_series:
+      - series: 'up{job="api", instance="api:9464"}'
+        values: '1 0x40'
+      - series: 'up{job="worker", instance="worker:9465"}'
+        values: '1x40'
+      - series: 'up{job="postgres", instance="postgres-exporter:9187"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ServiceDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: api, instance: 'api:9464' }
+            exp_annotations:
+              summary: 'The api has not answered Prometheus for 2 minutes.'
+              runbook: 'docker compose ps, then docker compose logs --tail 100 api'
+      - eval_time: 4m
+        alertname: MonitoringTargetDown
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: MonitoringTargetDown
+        exp_alerts:
+          - exp_labels: { severity: warning, job: postgres, instance: 'postgres-exporter:9187' }
+            exp_annotations:
+              summary: 'Prometheus cannot scrape postgres at postgres-exporter:9187.'
+              runbook: 'docker compose ps, then docker compose logs --tail 100 for that service'
+
+  - name: a process that keeps restarting is crash looping
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{job="worker", instance="worker:9465"}'
+        values: '100 100 200 200 300 300 400 400 400 400'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CrashLooping
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CrashLooping
+        exp_alerts:
+          - exp_labels: { severity: critical, job: worker, instance: 'worker:9465' }
+            exp_annotations:
+              summary: 'The worker restarted 3 times in 15 minutes.'
+              runbook: 'docker compose logs --tail 200 worker; an out-of-memory kill shows in docker inspect as OOMKilled'
+
+  - name: one request in seven failing burns the error budget fast and slow
+    interval: 1m
+    input_series:
+      # 60 good and 10 failed requests a minute.
+      - series: 'http_request_duration_seconds_count{job="api", method="POST", route="/v1/properties/:slug/holds", status_code="201"}'
+        values: '0+60x80'
+      - series: 'http_request_duration_seconds_count{job="api", method="POST", route="/v1/properties/:slug/holds", status_code="500"}'
+        values: '0+10x80'
+      # Health checks never count towards the error budget.
+      - series: 'http_request_duration_seconds_count{job="api", method="GET", route="/health/ready", status_code="200"}'
+        values: '0+600x80'
+    promql_expr_test:
+      - expr: job:http_request_errors:ratio_rate5m
+        eval_time: 70m
+        exp_samples:
+          - labels: 'job:http_request_errors:ratio_rate5m{job="api"}'
+            value: 0.14285714285714285
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: ApiErrorBudgetBurn
+        exp_alerts:
+          - exp_labels: { severity: critical, window: fast, job: api }
+            exp_annotations:
+              summary: '14.29% of API requests failed in the last 5 minutes, burning the error budget 14 times too fast.'
+              runbook: 'API health dashboard: find the failing route, then docker compose logs api'
+          - exp_labels: { severity: warning, window: slow, job: api }
+            exp_annotations:
+              summary: '14.29% of API requests failed in the last 30 minutes, burning the error budget 6 times too fast.'
+              runbook: 'API health dashboard: find the failing route, then docker compose logs api'
+
+  - name: a single failed request on a quiet night does not page
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_count{job="api", method="GET", route="/v1/properties/:slug", status_code="500"}'
+        values: '0 1x80'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ApiErrorBudgetBurn
+        exp_alerts: []
+
+  - name: the error ratio is 0, not missing, while nothing fails
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_count{job="api", method="GET", route="/v1/properties/:slug", status_code="200"}'
+        values: '0+30x20'
+    promql_expr_test:
+      - expr: job:http_request_errors:ratio_rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'job:http_request_errors:ratio_rate5m{job="api"}'
+            value: 0
+
+  - name: a job is stale after several of its own intervals, not a fixed time
+    interval: 15s
+    input_series:
+      # The outbox succeeds on every scrape; the night audit last succeeded at time 0.
+      - series: 'stayflow_job_last_success_timestamp_seconds{job="worker", instance="worker:9465", name="outbox"}'
+        values: '0+15x200'
+      - series: 'stayflow_job_last_success_timestamp_seconds{job="worker", instance="worker:9465", name="night audit"}'
+        values: '0x200'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: WorkerJobStale
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: WorkerJobStale
+        exp_alerts:
+          - exp_labels:
+              { severity: warning, job: worker, instance: 'worker:9465', name: night audit }
+            exp_annotations:
+              summary: 'The night audit job has not succeeded for 40m 0s.'
+              runbook: 'docker compose logs --tail 200 worker; look for "Scheduled job failed"'
+
+  - name: an email that gave up keeps the alert firing
+    interval: 15s
+    input_series:
+      - series: 'stayflow_outbox_events{job="worker", instance="worker:9465", state="dead"}'
+        values: '0x4 1x20'
+      - series: 'stayflow_outbox_events{job="worker", instance="worker:9465", state="pending"}'
+        values: '3x24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: OutboxDeadEvents
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: OutboxDeadEvents
+        exp_alerts:
+          - exp_labels: { severity: warning, job: worker, instance: 'worker:9465', state: dead }
+            exp_annotations:
+              summary: '1 booking emails gave up after all their retries.'
+              runbook: 'docker compose exec postgres psql -U stayflow -c "SELECT id, type, last_error FROM outbox_events WHERE dead_at IS NOT NULL"'
+
+  - name: 25 of the 30 Postgres connections in use is too close to the limit
+    interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{job="postgres", datname="stayflow", state="active"}'
+        values: '5x3 20x10'
+      - series: 'pg_stat_activity_count{job="postgres", datname="stayflow", state="idle"}'
+        values: '5x13'
+      - series: 'pg_settings_max_connections{job="postgres"}'
+        values: '30x13'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PostgresConnectionsHigh
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PostgresConnectionsHigh
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: '83.33% of the Postgres connections are in use.'
+              runbook: 'SELECT application_name, state, count(*) FROM pg_stat_activity GROUP BY 1, 2'

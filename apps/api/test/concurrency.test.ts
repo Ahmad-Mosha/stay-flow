@@ -123,6 +123,32 @@ describe('booking under concurrency', () => {
     }
   });
 
+  it('gives a room a lapsed hold still keeps to exactly one of 50 simultaneous holds', async () => {
+    for (let run = 0; run < RUNS; run++) {
+      const { slug, propertyId, unitIds } = await createInventory(db);
+      const [lastRoom, blockedRoom] = unitIds;
+      await occupy(db, {
+        propertyId,
+        unitId: blockedRoom,
+        nights: '[2026-12-01,2026-12-31)',
+        blockReason: 'Repairs',
+      });
+      const lapsed = reservationIdOf(await placeHold(url, slug).expect(201));
+      await lapseSoon(lapsed, -1_000);
+
+      const responses = await Promise.all(Array.from({ length: 50 }, () => placeHold(url, slug)));
+
+      expect(responses.map((response) => response.status).toSorted()).toEqual([
+        201,
+        ...Array<number>(49).fill(409),
+      ]);
+      for (const id of responses.filter((r) => r.status === 201).map(reservationIdOf)) {
+        expect(await roomOf(db, id)).toBe(lastRoom);
+      }
+      expect(await statusOf(db, lapsed)).toBe('expired');
+    }
+  });
+
   it('lets either a host block or a guest hold have the last room, never both', async () => {
     const winners = { hold: 0, block: 0 };
     for (let run = 0; run < RUNS; run++) {

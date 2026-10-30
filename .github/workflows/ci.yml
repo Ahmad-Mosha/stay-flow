@@ -72,6 +72,42 @@ jobs:
       - name: Check that generated database types match the schema
         run: pnpm --filter @stay-flow/api db:codegen:verify
 
+  monitoring:
+    name: Monitoring config and alert rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Placeholders: the production Compose file refuses to load without them.
+      DOMAIN: stayflow.example
+      ACME_EMAIL: ops@stayflow.example
+      POSTGRES_PASSWORD: ci
+      GRAFANA_ADMIN_PASSWORD: ci
+      POSTGRES_EXPORTER_PASSWORD: ci
+      TELEGRAM_BOT_TOKEN: ci
+      TELEGRAM_CHAT_ID: '0'
+      COMPOSE_FILE: deploy/compose.yaml
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the production Compose file
+        run: docker compose config --quiet
+      # Each tool runs from its service's image, so it checks with the version the server runs.
+      - name: Check the Prometheus configs
+        run: |
+          for config in prometheus.yml prometheus.local.yml; do
+            docker compose run --rm --no-deps --entrypoint promtool prometheus \
+              check config "/etc/prometheus/$config"
+          done
+      - name: Run the alert rule tests
+        run: >-
+          docker compose run --rm --no-deps --workdir /etc/prometheus --entrypoint promtool
+          prometheus test rules tests/alerts.test.yml
+      - name: Check the Alertmanager configs
+        run: >-
+          docker compose run --rm --no-deps --entrypoint amtool alertmanager check-config
+          /etc/alertmanager/alertmanager.yml /etc/alertmanager/alertmanager.local.yml
+      - name: Check the Caddyfile
+        run: docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
+
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-24.04

@@ -1,0 +1,17 @@
+# A laptop's Alertmanager: the same grouping, but alerts land in the local Mailpit inbox at
+# http://localhost:8025 instead of on a phone.
+route:
+  receiver: mailpit
+  group_by: [alertname]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: mailpit
+    email_configs:
+      - to: ops@stayflow.test
+        from: alerts@stayflow.test
+        smarthost: mailpit:1025
+        require_tls: false
+        send_resolved: true

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { Temporal } from 'temporal-polyfill';
@@ -7,9 +8,12 @@ import { Metrics } from '../src/platform/metrics/metrics.js';
 import { MetricsServer } from '../src/platform/metrics/metrics-server.js';
 import { createTeam } from './support/access.js';
 import {
+  confirmReservation,
   decemberHold,
   lapseHold,
   placeHold,
+  releaseReservation,
+  reservationCount,
   reservationIdOf,
   roomOf,
   statusOf,
@@ -89,13 +93,89 @@ describe('metrics', () => {
     await rooms.release();
 
     await expect.poll(() => requestCount(aborted)).toBe(before + 1);
+    // The server still places the hold. Wait for it, so a later test does not count it.
+    await expect.poll(() => reservationCount(db, propertyId)).toBe(1);
   });
 
   /** A counter's value, which only this file's application adds to. */
-  async function valueOf(counter: 'bookingConflicts' | 'holdsSoldOut' | 'holdsExpired') {
+  async function valueOf(
+    counter: 'holdsPlaced' | 'bookingConflicts' | 'holdsSoldOut' | 'holdsExpired',
+  ) {
     const { values } = await app.get(Metrics)[counter].get();
     return values[0]?.value ?? 0;
   }
+
+  /** How many reservations moved to `status`, taken by `actor`. */
+  async function statusChanges(status: string, actor: string): Promise<number> {
+    const { values } = await app.get(Metrics).reservationStatusChanges.get();
+    const series = values.find(
+      (value) => value.labels.status === status && value.labels.actor === actor,
+    );
+    return series?.value ?? 0;
+  }
+
+  it('counts a hold and its confirmation once each, however often the guest retries', async () => {
+    const holdsBefore = await valueOf('holdsPlaced');
+    const confirmedBefore = await statusChanges('confirmed', 'guest');
+    const { slug } = await createInventory(db);
+    const holdKey = randomUUID();
+    const confirmKey = randomUUID();
+
+    const id = reservationIdOf(await placeHold(app.getHttpServer(), slug, {}, holdKey).expect(201));
+    await placeHold(app.getHttpServer(), slug, {}, holdKey).expect(201);
+    await confirmReservation(app.getHttpServer(), id, confirmKey).expect(200);
+    await confirmReservation(app.getHttpServer(), id, confirmKey).expect(200);
+
+    expect(await valueOf('holdsPlaced')).toBe(holdsBefore + 1);
+    expect(await statusChanges('confirmed', 'guest')).toBe(confirmedBefore + 1);
+  });
+
+  it('counts a hold the guest gave up on once', async () => {
+    const before = await statusChanges('released', 'guest');
+    const { slug } = await createInventory(db);
+    const id = reservationIdOf(await placeHold(app.getHttpServer(), slug).expect(201));
+
+    await releaseReservation(app.getHttpServer(), id).expect(204);
+    await releaseReservation(app.getHttpServer(), id).expect(204);
+
+    expect(await statusChanges('released', 'guest')).toBe(before + 1);
+  });
+
+  it('counts each step of a stay by who took it, and a repeated step once', async () => {
+    const steps = [
+      ['checked_in', 'host'],
+      ['checked_out', 'host'],
+      ['no_show', 'host'],
+      ['cancelled', 'host'],
+    ] as const;
+    const before = await Promise.all(steps.map(([status, actor]) => statusChanges(status, actor)));
+    const team = await createTeam(db);
+    const [first, second] = team.unitIds;
+    const tonight = '[2026-10-27,2026-10-29)';
+    const { id: staying } = await createStay(db, { ...team, unitId: first, nights: tonight });
+    const { id: missing } = await createStay(db, { ...team, unitId: second, nights: tonight });
+    const { id: cancelling } = await createStay(db, {
+      ...team,
+      unitId: first,
+      nights: '[2026-11-02,2026-11-04)',
+    });
+    const act = (id: string, action: string) =>
+      request(app.getHttpServer())
+        .post(`/v1/host/properties/${team.propertyId}/reservations/${id}/${action}`)
+        .set('Cookie', team.frontDesk.cookie)
+        .send(action === 'cancel' ? { reason: 'Guest called' } : {});
+
+    await act(staying, 'check-in').expect(200);
+    await act(staying, 'check-in').expect(200);
+    await act(staying, 'check-out').expect(200);
+    await act(missing, 'no-show').expect(200);
+    await act(cancelling, 'cancel').expect(200);
+    // Refused: a cancelled booking cannot be checked in, and nothing is counted.
+    await act(cancelling, 'check-in').expect(409);
+
+    const after = await Promise.all(steps.map(([status, actor]) => statusChanges(status, actor)));
+    expect(after).toEqual(before.map((count) => count + 1));
+  });
 
   it('counts a hold refused because every room is taken', async () => {
     const before = await valueOf('holdsSoldOut');
@@ -137,7 +217,7 @@ describe('metrics', () => {
     expect(await valueOf('holdsExpired')).toBe(before + 1);
   });
 
-  it('counts a hold that ran out once its expiry commits, and not when it rolls back', async () => {
+  it('counts a hold that ran out once its expiry commits, even if the block after it fails', async () => {
     const before = await valueOf('holdsExpired');
     const team = await createTeam(db);
     const nights = `[${decemberHold.checkIn},${decemberHold.checkOut})`;
@@ -160,13 +240,13 @@ describe('metrics', () => {
           reason: 'Repainting',
         });
 
-    // Expires the lapsed hold on the way, then fails on the booked room and rolls back.
+    // Expires the lapsed hold on the way, in a transaction of its own, then fails on the booked
+    // room. The expiry stands: the hold was due either way.
     await block(bookedRoom).expect(409);
-    expect(await statusOf(db, lapsed)).toBe('held');
-    expect(await valueOf('holdsExpired')).toBe(before);
+    expect(await statusOf(db, lapsed)).toBe('expired');
+    expect(await valueOf('holdsExpired')).toBe(before + 1);
 
     await block(lapsedRoom).expect(201);
-    expect(await statusOf(db, lapsed)).toBe('expired');
     expect(await valueOf('holdsExpired')).toBe(before + 1);
   });
 });

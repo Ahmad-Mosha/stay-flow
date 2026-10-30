@@ -1,0 +1,10 @@
+# Parts that only run on the server.
+scrape_configs:
+  # Every public request, including those the API never sees because it was down.
+  - job_name: caddy
+    static_configs:
+      - targets: ['caddy:2020']
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']

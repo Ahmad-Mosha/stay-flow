@@ -1,0 +1,31 @@
+# The server's Alertmanager: groups the alerts Prometheus sends and posts them to Telegram. The bot
+# token and chat id come from .env, as Docker secrets (see ../../compose.yaml).
+route:
+  receiver: telegram
+  # One message per alert name: an outage that trips several rules is still one message each.
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: telegram
+      repeat_interval: 2h
+
+# While the API is down, its slow and failing requests are a symptom, not news.
+inhibit_rules:
+  - source_matchers: [alertname="ServiceDown", job="api"]
+    target_matchers: [alertname=~"ApiErrorBudgetBurn|ApiSlow"]
+  - source_matchers: [alertname="PostgresDown"]
+    target_matchers: [alertname=~"ApiErrorBudgetBurn|ApiSlow|WorkerJobStale|OutboxBacklog"]
+
+templates:
+  - /etc/alertmanager/telegram.tmpl
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /run/secrets/telegram_bot_token
+        chat_id_file: /run/secrets/telegram_chat_id
+        message: '{{ template "telegram.message" . }}'
+        send_resolved: true

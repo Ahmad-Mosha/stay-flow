@@ -1,0 +1,8 @@
+{{/* A headline, then each alert's summary and, while it fires, the first thing to run. */}}
+{{ define "telegram.message" -}}
+{{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname | html }}</b> {{ if eq .Status "firing" }}{{ .CommonLabels.severity | html }}{{ else }}resolved{{ end }}
+{{ range .Alerts }}
+• {{ .Annotations.summary | html }}{{ if eq $.Status "firing" }}
+<i>{{ .Annotations.runbook | html }}</i>{{ end }}
+{{ end }}
+{{- end }}

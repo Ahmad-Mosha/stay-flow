@@ -109,7 +109,7 @@ describe('Scheduler', () => {
     expect(count('failed')).toBe(1);
     expect(count('succeeded')).toBe(runs - 1);
     const lastSuccess = (await metrics.jobLastSuccess.get()).values[0];
-    expect(lastSuccess?.labels).toEqual({ job: 'flaky' });
+    expect(lastSuccess?.labels).toEqual({ name: 'flaky' });
     expect(Date.now() / 1000 - (lastSuccess?.value ?? 0)).toBeLessThan(5);
   });
 

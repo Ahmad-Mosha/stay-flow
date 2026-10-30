@@ -12,7 +12,7 @@ prove it.
 
 **Stack:** TypeScript, NestJS, Kysely, PostgreSQL 18, Next.js 16, React Aria, Tailwind CSS 4, Zod.
 Tested with Vitest, Testcontainers, Playwright and axe. Deployed with Docker Compose, Caddy and
-GitHub Actions.
+GitHub Actions, and monitored with Prometheus, Alertmanager and Grafana.
 
 ## Try it
 
@@ -65,8 +65,9 @@ Before you test:
   to outsiders.
 - **One contract.** Zod schemas validate API input, type the web app's calls and generate the
   OpenAPI document. Every integration test checks the response against that document.
-- **Ready to operate.** Prometheus metrics, health and readiness checks, JSON logs with request IDs,
-  and a graceful shutdown that finishes requests in flight.
+- **Ready to operate.** Grafana dashboards for bookings, the API, the worker and the server, alerts
+  on a 99.5% availability target sent to Telegram, health and readiness checks, JSON logs with
+  request IDs, and a graceful shutdown that finishes requests in flight.
 - **Accessible.** Keyboard first, light and dark themes, and an end-to-end suite that runs axe on
   every page and fails on any WCAG 2.2 AA violation it finds.
 
@@ -89,13 +90,13 @@ worker are one image started with different commands, and Postgres is the only s
 
 | Suite      | Tool                    | Tests | What it covers                                           |
 | ---------- | ----------------------- | ----: | -------------------------------------------------------- |
-| API        | Vitest + Testcontainers |   524 | Unit, HTTP integration on a real Postgres, races, worker |
+| API        | Vitest + Testcontainers |   527 | Unit, HTTP integration on a real Postgres, races, worker |
 | Web        | Vitest + jsdom + axe    |   242 | Components, views and their accessibility                |
 | Contracts  | Vitest                  |    41 | The shared Zod schemas                                   |
 | End to end | Playwright + axe        |    23 | Guest and host journeys on desktop and phone, WCAG scans |
 
-CI runs formatting, type checks, lint, every suite, the builds, a migrations check and the end-to-end
-suite on every pull request.
+CI runs formatting, type checks, lint, every suite, the builds, a migrations check, the alert rule
+tests and the end-to-end suite on every pull request.
 
 ## Deployment
 
@@ -109,19 +110,45 @@ Every merge to `main` deploys itself:
    migrations in a one-shot container, restart what changed, and wait until every container is
    healthy. A failed health check fails the workflow.
 
-| Part     | Role                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------- |
-| Caddy    | The only public container: HTTPS from Let's Encrypt, HTTP/3, security headers, routing            |
-| web, api | Next.js and the NestJS API. Caddy holds requests during a restart, so a deploy drops none of them |
-| worker   | Emails, hold expiry and the night audit, from the same image as the API                           |
-| Postgres | Not reachable from the internet. `backup.sh` keeps 7 days of `pg_dump` backups                    |
-| Mailpit  | Catches emails, reachable only through an SSH tunnel                                              |
+| Part       | Role                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| Caddy      | The only public container: HTTPS from Let's Encrypt, HTTP/3, security headers, routing            |
+| web, api   | Next.js and the NestJS API. Caddy holds requests during a restart, so a deploy drops none of them |
+| worker     | Emails, hold expiry and the night audit, from the same image as the API                           |
+| Postgres   | Not reachable from the internet. `backup.sh` keeps 7 days of `pg_dump` backups                    |
+| Mailpit    | Catches emails, reachable only through an SSH tunnel                                              |
+| Monitoring | Prometheus, Alertmanager and Grafana, described below. Grafana has its own subdomain and login    |
 
 The whole stack uses under 250 MB of RAM at rest. Each container has a memory cap, and the server
 has 2 GB of swap. A cloud firewall allows only ports 22, 80 and 443, SSH accepts keys only with no
 root login, and the deploy key is restricted while the workflow checks the server's pinned host key.
 Rolling back is `./deploy.sh <older sha>`. The full runbook is in
 [deploy/README.md](deploy/README.md).
+
+## Observability
+
+![The Bookings dashboard in Grafana during a simulated rush of guests](docs/screenshots/grafana-bookings.webp)
+
+Prometheus scrapes the API, the worker, Caddy, Postgres and the server every 15 seconds. Grafana
+loads four dashboards from JSON files in this repository, so they are reviewed like code:
+
+| Dashboard           | What it answers                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| Bookings            | How many holds became bookings, how many double bookings the database blocked, and each stay's steps |
+| API health          | Requests, errors and latency by route, against a 99.5% availability target                           |
+| Worker and email    | The outbox backlog, email deliveries, and when each background job last succeeded                    |
+| Server and database | CPU, memory, swap and disk, Postgres connections and locks, and the traffic Caddy serves             |
+
+- **Business metrics you can trust.** A booking is counted after its transaction commits, so a
+  rollback never shows, and a retry with the same idempotency key is not counted twice. Tests check
+  each counter.
+- **Alerts that page for real problems.** Multiwindow burn-rate alerts on the error budget fire
+  within minutes for an outage and within hours for a slow leak, with a traffic floor so one failed
+  request at night does not page. Alertmanager sends them to Telegram, and promtool tests in CI check
+  every rule.
+- **Sized for the server.** Prometheus keeps 15 days, capped at 1 GB of disk. Grafana runs only the
+  Prometheus data source, which halves its memory. The monitoring containers add MONITORING_MB of
+  RAM.
 
 ## Run it locally
 
@@ -134,6 +161,17 @@ docker compose --profile full up -d --build --wait
 This builds the images, runs the migrations, adds the demo hotels and starts the app at
 http://localhost:8080, with the email inbox at http://localhost:8025. Stop it with
 `docker compose --profile full down` (add `-v` to delete the database).
+
+To see the dashboards, add the monitoring profile, then book rooms like a crowd of guests for five
+minutes:
+
+```sh
+docker compose --profile full --profile monitoring up -d --build --wait
+pnpm demo:traffic                          # needs Node 24 and pnpm, see below
+```
+
+Grafana is at http://localhost:3002, Prometheus at http://localhost:9090, and alerts arrive in the
+email inbox.
 
 To develop, you need Node 24 and pnpm 10 (`corepack enable`):
 
@@ -154,7 +192,7 @@ apps/api/             NestJS API and worker: modules, platform, migrations, test
 apps/web/             Next.js guest site and host dashboard
 packages/contracts/   Zod schemas shared by the API and the web app
 e2e/                  Playwright end-to-end tests
-deploy/               Production Compose, Caddy, deploy and backup scripts
+deploy/               Production Compose, Caddy, monitoring, deploy and backup scripts
 ```
 
 ## How it was built

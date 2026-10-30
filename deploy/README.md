@@ -4,7 +4,8 @@ Stay Flow runs on one small Linux server (1 vCPU, 1 GB RAM) with Docker Compose.
 builds the images, so the server only pulls and runs them.
 
 Caddy is the only container with public ports. It sends `/v1/*` to the API and everything else to
-the web app; the API and the worker share Postgres.
+the web app; the API and the worker share Postgres. Prometheus, Alertmanager and Grafana watch it
+all (see [Monitoring](#monitoring)).
 
 | Service    | Image                               | Memory cap | Job                                            |
 | ---------- | ----------------------------------- | ---------- | ---------------------------------------------- |
@@ -16,6 +17,14 @@ the web app; the API and the worker share Postgres.
 | `postgres` | `postgres:18`                       | 256 MB     | Database                                       |
 | `mailpit`  | `axllent/mailpit`                   | 64 MB      | Catches emails until a real SMTP server is set |
 
+| Monitoring          | Image                                   | Memory cap | Job                                               |
+| ------------------- | --------------------------------------- | ---------- | ------------------------------------------------- |
+| `prometheus`        | `prom/prometheus`                       | 192 MB     | Scrapes every part, keeps 15 days, runs the rules |
+| `alertmanager`      | `prom/alertmanager`                     | 48 MB      | Groups alerts and sends them to Telegram          |
+| `grafana`           | `grafana/grafana`                       | 192 MB     | Dashboards at `grafana.<domain>`, with a login    |
+| `node-exporter`     | `prom/node-exporter`                    | 32 MB      | The server's CPU, memory, swap and disk           |
+| `postgres-exporter` | `prometheuscommunity/postgres-exporter` | 32 MB      | Postgres statistics, through a read-only role     |
+
 Under load, the whole stack uses about 350 MB, and about 250 MB at rest on the live server. The caps
 stop one leaking process from taking the server down, and 2 GB of swap absorbs short peaks.
 
@@ -24,9 +33,10 @@ stop one leaking process from taking the server down, and 2 GB of swap absorbs s
 1. A pull request builds both images, without pushing them.
 2. After CI passes on `main`, the [Deploy workflow](../.github/workflows/deploy.yml) pushes the
    images to GHCR, tagged with the commit's sha and `latest`.
-3. It copies this folder's stack files to `/opt/stay-flow` on the server over SSH and runs
-   `deploy.sh <sha>`, which pulls the images, runs the migrations, swaps the containers whose image
-   changed and waits for them to be healthy.
+3. It copies this folder's stack files, `monitoring/` included, to `/opt/stay-flow` on the server
+   over SSH and runs `deploy.sh <sha>`, which pulls the images, runs the migrations, swaps the
+   containers whose image changed, waits for them to be healthy, and reloads Caddy, Prometheus and
+   Alertmanager.
 
 While a container restarts, Caddy holds new requests for up to 15 seconds instead of answering 502.
 
@@ -68,7 +78,9 @@ Then:
 - **Domain**: point an A record (and AAAA for IPv6) at the server. Caddy needs it before the first
   deploy to get a certificate.
 - **Settings**: as `deploy`, copy [.env.example](.env.example) to `/opt/stay-flow/.env`, fill it in
-  and `chmod 600` it.
+  and `chmod 600` it. The Telegram settings are explained under [Monitoring](#monitoring).
+- **Grafana's domain**: `grafana.<domain>` must point at the server too. DuckDNS answers for every
+  name under your domain, so there is nothing to add there.
 - **Deploy key**: make a key pair for GitHub Actions only, on your own machine:
   `ssh-keygen -t ed25519 -N "" -C github-actions-deploy -f ~/.ssh/stayflow_deploy`. Add the public
   key to `/home/deploy/.ssh/authorized_keys` with the `restrict` option in front, which turns off
@@ -116,3 +128,43 @@ All commands run in `/opt/stay-flow` as `deploy`.
 
 Backups on the same disk protect against mistakes, not against losing the server: copy them
 elsewhere now and then, for example with `scp` to your own machine.
+
+## Monitoring
+
+Prometheus scrapes the API (port 9464), the worker (9465), Caddy (2020), node-exporter and
+postgres-exporter every 15 seconds on the private network, and evaluates the rules in
+[monitoring/prometheus/rules](monitoring/prometheus/rules). Firing alerts go to Alertmanager, which
+groups them and posts them to Telegram. Grafana loads its data sources and four dashboards
+(Bookings, API health, Worker and email, Server and database) from
+[monitoring/grafana](monitoring/grafana) when it starts.
+
+| Page         | How to open it                                                                         |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Grafana      | https://grafana.<domain>, user `admin`, password `GRAFANA_ADMIN_PASSWORD` from `.env`  |
+| Prometheus   | `ssh -L 9090:localhost:9090 deploy@<server>`, then http://localhost:9090               |
+| Alertmanager | `ssh -L 9093:localhost:9093 deploy@<server>`, then http://localhost:9093, for silences |
+
+**Telegram, once.** In Telegram, ask **@BotFather** for `/newbot` and keep the token it sends. Send
+your new bot any message, then open `https://api.telegram.org/bot<token>/getUpdates` in your
+browser and find your chat id in `"chat":{"id":…`. Add both to `.env` with `nano .env`, as
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, before the first deploy that includes monitoring:
+Compose refuses to start without them. Alertmanager reads them only when it starts, so after
+changing them run `docker compose up -d --force-recreate alertmanager`.
+
+**Test an alert.** `docker compose stop worker`; within about 3 minutes Telegram shows
+**ServiceDown**. `docker compose start worker` sends the resolved message.
+
+**Change a dashboard.** Grafana cannot save edits to these dashboards. Edit one in the UI, use
+**Export → Export as JSON**, replace the file in `monitoring/grafana/dashboards/` and commit it.
+
+**Change a rule.** Edit `monitoring/prometheus/rules/`, add a case to
+`monitoring/prometheus/tests/alerts.test.yml`, and run the tests, as CI does:
+
+```sh
+docker compose run --rm --no-deps --workdir /etc/prometheus --entrypoint promtool prometheus test rules tests/alerts.test.yml
+```
+
+Each deploy copies `monitoring/` over the old one, so a file deleted from the repository stays on
+the server until you delete it there. The Grafana admin password in `.env` only counts the first
+time Grafana starts; change it later with
+`docker compose exec grafana grafana cli admin reset-admin-password <new>`.

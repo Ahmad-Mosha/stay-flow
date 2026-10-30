@@ -1,0 +1,26 @@
+# Grafana reads these at startup. The uids are fixed, so the dashboards can name them.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # The scrape interval, so $__rate_interval never asks for a window with one sample in it.
+      timeInterval: 15s
+      httpMethod: POST
+
+  # Shows the firing alerts and silences in Grafana's Alerting pages.
+  - name: Alertmanager
+    uid: alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false
