@@ -3,12 +3,8 @@
 Stay Flow runs on one small Linux server (1 vCPU, 1 GB RAM) with Docker Compose. GitHub Actions
 builds the images, so the server only pulls and runs them.
 
-```
-                 ┌──────────────────────────── server ─────────────────────────────┐
- browser ─HTTPS─▶│ Caddy ─┬─ /v1/* ─▶ api ──┐                                      │
-                 │        └─ rest ──▶ web ──┴─▶ postgres ◀── worker ──▶ mailpit    │
-                 └─────────────────────────────────────────────────────────────────┘
-```
+Caddy is the only container with public ports. It sends `/v1/*` to the API and everything else to
+the web app; the API and the worker share Postgres.
 
 | Service    | Image                               | Memory cap | Job                                            |
 | ---------- | ----------------------------------- | ---------- | ---------------------------------------------- |
@@ -20,8 +16,8 @@ builds the images, so the server only pulls and runs them.
 | `postgres` | `postgres:18`                       | 256 MB     | Database                                       |
 | `mailpit`  | `axllent/mailpit`                   | 64 MB      | Catches emails until a real SMTP server is set |
 
-Under load, the whole stack uses about 350 MB. The caps stop one leaking process from taking the
-server down, and 2 GB of swap absorbs short peaks.
+Under load, the whole stack uses about 350 MB, and about 250 MB at rest on the live server. The caps
+stop one leaking process from taking the server down, and 2 GB of swap absorbs short peaks.
 
 ## How a deploy works
 
@@ -36,13 +32,16 @@ While a container restarts, Caddy holds new requests for up to 15 seconds instea
 
 ## Set up a server once
 
-On a fresh Ubuntu 24.04 server, as root:
+On a fresh Ubuntu 24.04 or newer server (the live one runs 26.04), as root. Paste one command at a
+time: a password prompt swallows the lines pasted after it.
 
 ```sh
 # A user for deploys, with your SSH key, and 2 GB of swap.
 adduser deploy && usermod -aG sudo deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/
+# If root logged in with a password, that file is empty. Fetch your keys from GitHub instead:
+#   su - deploy -c 'ssh-import-id-gh <github-user>'
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 echo 'vm.swappiness=10' > /etc/sysctl.d/99-swap.conf && sysctl --system
@@ -70,9 +69,13 @@ Then:
   deploy to get a certificate.
 - **Settings**: as `deploy`, copy [.env.example](.env.example) to `/opt/stay-flow/.env`, fill it in
   and `chmod 600` it.
-- **Deploy key**: make a key pair for GitHub Actions only. Add the public key to
-  `/home/deploy/.ssh/authorized_keys` with the `restrict` option in front, which turns off port
-  forwarding and terminals for it.
+- **Deploy key**: make a key pair for GitHub Actions only, on your own machine:
+  `ssh-keygen -t ed25519 -N "" -C github-actions-deploy -f ~/.ssh/stayflow_deploy`. Add the public
+  key to `/home/deploy/.ssh/authorized_keys` with the `restrict` option in front, which turns off
+  port forwarding and terminals for it:
+  `echo "restrict $(cat ~/.ssh/stayflow_deploy.pub)" | ssh deploy@<server> 'cat >> .ssh/authorized_keys'`.
+  Copy the private key with `pbcopy < ~/.ssh/stayflow_deploy` (or `gh secret set`), not from the
+  terminal screen: wrapped lines break it, and the workflow fails with `error in libcrypto`.
 
 ## Connect GitHub
 
@@ -85,9 +88,9 @@ In the repository's **Settings → Secrets and variables → Actions**:
 | `DEPLOY_KNOWN_HOSTS` | variable | The output of `ssh-keyscan -t ed25519 <DEPLOY_HOST>` |
 | `DEPLOY_USER`        | variable | Optional; `deploy` by default                        |
 
-The deploy job is skipped until `DEPLOY_HOST` is set. The first image push creates two private
-packages on GHCR; make both public (**Package settings → Change visibility**), so the server can pull
-them without a token. Then run **Actions → Deploy → Run workflow**.
+The deploy job is skipped until `DEPLOY_HOST` is set. The first image push creates two packages on
+GHCR. If they are private, make both public (**Package settings → Change visibility**), so the
+server can pull them without a token. Then run **Actions → Deploy → Run workflow**.
 
 For the demo hotels and their host accounts (running it again adds only what is missing):
 
