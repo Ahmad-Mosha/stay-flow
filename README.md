@@ -148,8 +148,9 @@ deploy/               Production Compose, Caddy, deploy and backup scripts
 
 ## How it was built
 
-I led this project. I defined the product and the engineering bar it had to meet (no double booking
-enforced by the database, real concurrency tests, migrations, CI on every change), approved the
-architecture and the design direction, and set up and run the production server. The code was
-written with AI coding tools (Claude Code) working under that direction, and the frontend was built
-entirely with AI.
+I led this project, defined the product requirements and engineering standards, and reviewed and
+approved the architecture and design decisions. I also set up and operate the production server.
+
+- **Backend:** I built the backend with assistance from AI coding tools.
+- **Frontend:** The frontend was built entirely by AI coding tools. My role was to lead the work,
+  review the results, and approve architectural and design decisions.
