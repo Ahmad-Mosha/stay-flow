@@ -1,0 +1,16 @@
+# A laptop's Prometheus, for `docker compose --profile monitoring`. The same rules and app
+# targets as the server, without Caddy and the host exporter, which only run there.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_config_files:
+  - targets/app.yml

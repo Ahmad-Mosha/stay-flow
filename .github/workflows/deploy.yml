@@ -94,6 +94,6 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
       - name: Copy the stack files
-        run: scp deploy/compose.yaml deploy/Caddyfile deploy/*.sh "$TARGET:/opt/stay-flow/"
+        run: scp -r deploy/compose.yaml deploy/Caddyfile deploy/*.sh deploy/monitoring "$TARGET:/opt/stay-flow/"
       - name: Pull and start the new images
         run: ssh "$TARGET" /opt/stay-flow/deploy.sh "$COMMIT"

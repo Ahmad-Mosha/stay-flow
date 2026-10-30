@@ -1,0 +1,13 @@
+# Loads every dashboard in the dashboards folder. Edits made in the UI cannot be saved: export the
+# JSON, replace the file and commit it, so the repository stays the only source.
+apiVersion: 1
+
+providers:
+  - name: stay-flow
+    folder: Stay Flow
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards

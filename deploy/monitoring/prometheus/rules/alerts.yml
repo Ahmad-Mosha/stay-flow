@@ -1,0 +1,210 @@
+# Alerts, sent to Alertmanager. Critical means a guest can notice; warning means look today.
+# Each summary is one plain sentence: Telegram shows it as it is. Tests: ../tests/alerts.test.yml.
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api|worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'The {{ $labels.job }} has not answered Prometheus for 2 minutes.'
+          runbook: 'docker compose ps, then docker compose logs --tail 100 {{ $labels.job }}'
+
+      - alert: MonitoringTargetDown
+        expr: up{job!~"api|worker"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }}.'
+          runbook: 'docker compose ps, then docker compose logs --tail 100 for that service'
+
+      # Several restarts in a short time: the container starts, fails, and Docker restarts it.
+      - alert: CrashLooping
+        expr: changes(process_start_time_seconds{job=~"api|worker"}[15m]) > 2
+        labels:
+          severity: critical
+        annotations:
+          summary: 'The {{ $labels.job }} restarted {{ $value }} times in 15 minutes.'
+          runbook: 'docker compose logs --tail 200 {{ $labels.job }}; an out-of-memory kill shows in docker inspect as OOMKilled'
+
+  - name: api
+    rules:
+      # Multiwindow burn-rate alerts on a 99.5% availability target over 30 days. A 14.4x burn
+      # spends 2% of the month's error budget in an hour; 6x spends 5% in six hours. The short
+      # window ends the alert soon after the errors stop. The traffic floor keeps a single failed
+      # request on a quiet night from paging.
+      - alert: ApiErrorBudgetBurn
+        expr: |
+          job:http_request_errors:ratio_rate5m > (14.4 * 0.005)
+          and job:http_request_errors:ratio_rate1h > (14.4 * 0.005)
+          and job:http_requests:rate1h > 0.02
+        for: 2m
+        labels:
+          severity: critical
+          window: fast
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of API requests failed in the last 5 minutes, burning the error budget 14 times too fast.'
+          runbook: 'API health dashboard: find the failing route, then docker compose logs api'
+      - alert: ApiErrorBudgetBurn
+        expr: |
+          job:http_request_errors:ratio_rate30m > (6 * 0.005)
+          and job:http_request_errors:ratio_rate6h > (6 * 0.005)
+          and job:http_requests:rate6h > 0.02
+        for: 15m
+        labels:
+          severity: warning
+          window: slow
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of API requests failed in the last 30 minutes, burning the error budget 6 times too fast.'
+          runbook: 'API health dashboard: find the failing route, then docker compose logs api'
+
+      - alert: ApiSlow
+        expr: |
+          job:http_request_duration_seconds:p95_rate5m > 1
+          and job:http_requests:rate5m > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The slowest 5% of API requests take over {{ $value | humanizeDuration }}.'
+          runbook: 'API health dashboard for the slow route; Server dashboard for CPU, swap and database load'
+
+  - name: worker
+    rules:
+      # Each job is stale after a few of its intervals: outbox every 1 s, hold sweep every 30 s,
+      # night audit every 5 min, housekeeping every hour.
+      - alert: WorkerJobStale
+        expr: |
+          time() - stayflow_job_last_success_timestamp_seconds{name=~"outbox|hold sweep"} > 300
+          or time() - stayflow_job_last_success_timestamp_seconds{name="night audit"} > 1800
+          or time() - stayflow_job_last_success_timestamp_seconds{name="housekeeping"} > 3 * 3600
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The {{ $labels.name }} job has not succeeded for {{ $value | humanizeDuration }}.'
+          runbook: 'docker compose logs --tail 200 worker; look for "Scheduled job failed"'
+
+      - alert: OutboxBacklog
+        expr: stayflow_outbox_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The oldest unsent booking email has waited {{ $value | humanizeDuration }}.'
+          runbook: 'Worker dashboard: retries mean the mail server refuses; no deliveries mean the worker is stuck'
+
+      # A dead event stays dead until someone looks, so this keeps firing until it is handled.
+      - alert: OutboxDeadEvents
+        expr: stayflow_outbox_events{state="dead"} > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value }} booking emails gave up after all their retries.'
+          runbook: 'docker compose exec postgres psql -U stayflow -c "SELECT id, type, last_error FROM outbox_events WHERE dead_at IS NOT NULL"'
+
+  - name: database
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Postgres is not answering the metrics exporter.'
+          runbook: 'docker compose ps postgres, then docker compose logs --tail 100 postgres'
+
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of the Postgres connections are in use.'
+          runbook: 'SELECT application_name, state, count(*) FROM pg_stat_activity GROUP BY 1, 2'
+
+      # Writers lock a room before they book it, so a deadlock means a code path broke that rule.
+      - alert: PostgresDeadlocks
+        expr: increase(pg_stat_database_deadlocks{datname="stayflow"}[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Postgres broke {{ $value }} deadlocks in the last 10 minutes.'
+          runbook: 'docker compose logs postgres | grep -A5 deadlock'
+
+  - name: host
+    rules:
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Only {{ $value | humanizePercentage }} of the server memory is free.'
+          runbook: 'docker stats --no-stream to find the biggest container'
+
+      - alert: HostSwapHeavy
+        expr: 1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes > 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of the swap is in use, so the server is slowing down.'
+          runbook: 'docker stats --no-stream; free -m'
+
+      - alert: HostCpuBusy
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The CPU has been {{ $value | humanizePercentage }} busy for 15 minutes.'
+          runbook: 'docker stats --no-stream; top'
+
+      - alert: HostDiskFilling
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.1
+          or (
+            node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.25
+            and predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[6h], 24 * 3600) < 0
+          )
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The disk is filling up: {{ $value | humanizePercentage }} is left.'
+          runbook: 'docker system df; du -sh /opt/stay-flow/backups'
+
+  - name: monitoring
+    rules:
+      # If Telegram rejects the alerts, this one cannot reach Telegram either: it shows in Grafana.
+      - alert: AlertDeliveryFailing
+        expr: sum by (integration) (rate(alertmanager_notifications_failed_total[10m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Alertmanager cannot deliver alerts through {{ $labels.integration }}.'
+          runbook: 'docker compose logs alertmanager; check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env'
+
+      - alert: PrometheusRuleFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Prometheus failed to evaluate the rules of {{ $labels.rule_group }}.'
+          runbook: 'docker compose logs prometheus'
+
+      # deploy.sh reloads both after each deploy. A broken config is refused, and the old one runs on.
+      - alert: MonitoringConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0 or alertmanager_config_last_reload_successful == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The new {{ $labels.job }} config was refused, so the old one is still running.'
+          runbook: 'docker compose logs --tail 50 {{ $labels.job }}'

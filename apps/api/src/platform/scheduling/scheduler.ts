@@ -72,7 +72,7 @@ export class Scheduler implements OnApplicationBootstrap, BeforeApplicationShutd
   }
 
   private async runOnce(job: ScheduledJob): Promise<void> {
-    const endTimer = this.metrics.jobDuration.startTimer({ job: job.name });
+    const endTimer = this.metrics.jobDuration.startTimer({ name: job.name });
     try {
       await job.run(this.shutdown.signal);
     } catch (error) {
@@ -81,6 +81,6 @@ export class Scheduler implements OnApplicationBootstrap, BeforeApplicationShutd
       return;
     }
     endTimer({ outcome: 'succeeded' });
-    this.metrics.jobLastSuccess.set({ job: job.name }, Date.now() / 1000);
+    this.metrics.jobLastSuccess.set({ name: job.name }, Date.now() / 1000);
   }
 }

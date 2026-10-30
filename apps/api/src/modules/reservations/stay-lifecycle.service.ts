@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Temporal } from 'temporal-polyfill';
 import { DATABASE, type Database, type Transaction } from '../../platform/database/database.js';
 import { AppError } from '../../platform/errors/app-error.js';
+import { Metrics } from '../../platform/metrics/metrics.js';
 import { OutboxService } from '../../platform/outbox/outbox.service.js';
 import { Clock } from '../../platform/time/clock.js';
 import { InventoryService } from '../inventory/inventory.service.js';
@@ -46,14 +47,15 @@ export class StayLifecycleService {
     private readonly properties: PropertiesService,
     private readonly inventory: InventoryService,
     private readonly reservations: ReservationsRepository,
+    private readonly metrics: Metrics,
   ) {}
 
   /** From the day of arrival until the last night. */
   async checkIn(propertyId: string, id: string, by: StepBy): Promise<void> {
     const today = await this.todayAt(propertyId);
-    await this.db.transaction().execute(async (trx) => {
+    const moved = await this.db.transaction().execute(async (trx) => {
       const reservation = await this.get(trx, propertyId, id);
-      await this.advance(
+      return this.advance(
         trx,
         propertyId,
         reservation,
@@ -64,34 +66,39 @@ export class StayLifecycleService {
         },
       );
     });
+    this.count(moved, 'checked_in', by);
   }
 
   /** Any time after check-in. A guest who leaves early gives the room back from tonight. */
   async checkOut(propertyId: string, id: string, by: StepBy): Promise<void> {
     const today = await this.todayAt(propertyId);
-    await this.db.transaction().execute(async (trx) => {
+    const moved = await this.db.transaction().execute(async (trx) => {
       const reservation = await this.get(trx, propertyId, id);
       const step: Move = { from: 'checked_in', to: 'checked_out', ...by };
-      if (await this.advance(trx, propertyId, reservation, step)) {
+      const advanced = await this.advance(trx, propertyId, reservation, step);
+      if (advanced) {
         await this.inventory.endStay(trx, id, today);
       }
+      return advanced;
     });
+    this.count(moved, 'checked_out', by);
   }
 
   /** From the day of arrival, for a guest who never came. Gives the room back. */
   async markNoShow(propertyId: string, id: string, by: StepBy): Promise<void> {
     const today = await this.todayAt(propertyId);
-    await this.db.transaction().execute(async (trx) => {
+    const moved = await this.db.transaction().execute(async (trx) => {
       const reservation = await this.get(trx, propertyId, id);
       const step: Move = { from: 'confirmed', to: 'no_show', ...by };
-      if (
-        await this.advance(trx, propertyId, reservation, step, () => {
-          assertArrivalDue(reservation, today);
-        })
-      ) {
+      const advanced = await this.advance(trx, propertyId, reservation, step, () => {
+        assertArrivalDue(reservation, today);
+      });
+      if (advanced) {
         await this.inventory.releaseUnits(trx, [id]);
       }
+      return advanced;
     });
+    this.count(moved, 'no_show', by);
   }
 
   /**
@@ -102,7 +109,7 @@ export class StayLifecycleService {
     const property = await this.properties.getById(propertyId);
     const today = this.properties.today(property);
     const now = this.clock.now();
-    await this.db.transaction().execute(async (trx) => {
+    const moved = await this.db.transaction().execute(async (trx) => {
       const reservation = await this.get(trx, propertyId, id);
       const refundMinor =
         cancellation.waiveFee === true
@@ -115,7 +122,7 @@ export class StayLifecycleService {
         userId: cancellation.userId,
         note: cancellation.reason,
       };
-      const moved = await this.advance(
+      const advanced = await this.advance(
         trx,
         propertyId,
         reservation,
@@ -126,11 +133,13 @@ export class StayLifecycleService {
         },
         { refundMinor },
       );
-      if (moved) {
+      if (advanced) {
         await this.inventory.releaseUnits(trx, [id]);
         await this.outbox.enqueue(trx, reservationCancelled(id, cancellation.actor));
       }
+      return advanced;
     });
+    this.count(moved, 'cancelled', cancellation);
   }
 
   /**
@@ -161,6 +170,13 @@ export class StayLifecycleService {
       return false;
     }
     throw cannotTake(step, status);
+  }
+
+  /** Called after the transaction commits, so a step that rolled back is never counted. */
+  private count(moved: boolean, status: ReservationStatus, { actor }: StepBy): void {
+    if (moved) {
+      this.metrics.reservationStatusChanges.inc({ status, actor });
+    }
   }
 
   private async get(trx: Transaction, propertyId: string, id: string): Promise<Reservation> {

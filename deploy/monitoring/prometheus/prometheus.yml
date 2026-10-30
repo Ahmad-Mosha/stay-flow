@@ -1,0 +1,17 @@
+# The server's Prometheus. It pulls every target's /metrics over the private Docker network,
+# evaluates the rules, and hands firing alerts to Alertmanager.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_config_files:
+  - targets/app.yml
+  - targets/server.yml

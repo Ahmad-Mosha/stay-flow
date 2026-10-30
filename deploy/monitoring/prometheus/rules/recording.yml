@@ -1,0 +1,53 @@
+# Precomputed series for the dashboards and alerts. Names follow level:metric:operation.
+groups:
+  - name: api
+    rules:
+      # The SLI leaves out Docker's health checks, which would pad every rate with fast 200s.
+      - record: job:http_requests:rate5m
+        expr: sum by (job) (rate(http_request_duration_seconds_count{job="api", route!~"/health/.*"}[5m]))
+      - record: job:http_requests:rate30m
+        expr: sum by (job) (rate(http_request_duration_seconds_count{job="api", route!~"/health/.*"}[30m]))
+      - record: job:http_requests:rate1h
+        expr: sum by (job) (rate(http_request_duration_seconds_count{job="api", route!~"/health/.*"}[1h]))
+      - record: job:http_requests:rate6h
+        expr: sum by (job) (rate(http_request_duration_seconds_count{job="api", route!~"/health/.*"}[6h]))
+
+      # The share of requests that failed on the server's side. `or ... * 0` makes it 0, not
+      # missing, while there are no 5xx responses at all.
+      - record: job:http_request_errors:ratio_rate5m
+        expr: |
+          (
+            sum by (job) (rate(http_request_duration_seconds_count{job="api", status_code=~"5.."}[5m]))
+            or job:http_requests:rate5m * 0
+          ) / job:http_requests:rate5m
+      - record: job:http_request_errors:ratio_rate30m
+        expr: |
+          (
+            sum by (job) (rate(http_request_duration_seconds_count{job="api", status_code=~"5.."}[30m]))
+            or job:http_requests:rate30m * 0
+          ) / job:http_requests:rate30m
+      - record: job:http_request_errors:ratio_rate1h
+        expr: |
+          (
+            sum by (job) (rate(http_request_duration_seconds_count{job="api", status_code=~"5.."}[1h]))
+            or job:http_requests:rate1h * 0
+          ) / job:http_requests:rate1h
+      - record: job:http_request_errors:ratio_rate6h
+        expr: |
+          (
+            sum by (job) (rate(http_request_duration_seconds_count{job="api", status_code=~"5.."}[6h]))
+            or job:http_requests:rate6h * 0
+          ) / job:http_requests:rate6h
+
+      - record: job:http_request_duration_seconds:p95_rate5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(http_request_duration_seconds_bucket{job="api", route!~"/health/.*"}[5m])))
+
+  - name: bookings
+    rules:
+      # Of the holds placed in the last hour, the share that became bookings.
+      - record: stayflow:hold_conversion:ratio_rate1h
+        expr: |
+          sum(increase(stayflow_reservation_status_changes_total{status="confirmed"}[1h]))
+          / sum(increase(stayflow_holds_placed_total[1h]))
